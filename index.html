@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=1.0">
+    <title>耗材配件 · 出入库管理系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        html,body{width:100vw;height:100vh;overflow:hidden;background:#f4f7fc;font-family:system-ui,sans-serif;color:#1e293b}
+        body{padding:0.5rem;display:flex;flex-direction:column}
+        .login-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(6px)}
+        .login-box{background:#fff;border-radius:1.2rem;padding:2.5rem 2rem;box-shadow:0 25px 50px rgba(0,0,0,0.25);width:380px;max-width:90%;text-align:center}
+        .login-box h2{font-size:1.4rem;margin-bottom:1.8rem;color:#0f172a;display:flex;align-items:center;justify-content:center;gap:0.5rem}
+        .login-box .form-group{margin-bottom:1.2rem;text-align:left}
+        .login-box label{display:block;font-size:0.75rem;font-weight:600;color:#475569;margin-bottom:0.3rem;text-transform:uppercase;letter-spacing:0.05em}
+        .login-box select,.login-box input{width:100%;padding:0.7rem 0.9rem;border:1px solid #dce2e9;border-radius:0.8rem;font-size:0.9rem;background:#fff;outline:none;transition:border 0.2s}
+        .login-box select:focus,.login-box input:focus{border-color:#0f172a}
+        .login-box .btn-login{width:100%;padding:0.75rem;background:#0f172a;color:#fff;border:none;border-radius:0.8rem;font-size:1rem;font-weight:600;cursor:pointer;transition:background 0.2s;margin-top:0.8rem}
+        .login-box .btn-login:hover{background:#1e293b}
+        .login-error{color:#dc2626;font-size:0.8rem;margin-top:0.6rem;display:none}
+        .app{width:100%;height:100%;background:#fff;border-radius:0.5rem;padding:0.8rem 1rem;box-shadow:0 4px 16px rgba(0,0,0,0.04);display:flex;flex-direction:column;overflow:hidden}
+        .app-header{display:flex;align-items:center;justify-content:space-between;flex-shrink:0;margin-bottom:0.5rem}
+        .app-header h1{font-size:1.2rem;display:flex;align-items:center;gap:0.4rem}
+        .btn-logout{padding:0.5rem 1.2rem;border-radius:1.5rem;border:1px solid #d1d9e6;background:#fff;cursor:pointer;font-size:0.85rem;font-weight:500;color:#64748b;transition:all 0.15s}
+        .btn-logout:hover{background:#fee2e2;color:#b91c1c;border-color:#fecaca}
+        .tabs{display:flex;gap:0.3rem;border-bottom:2px solid #e9eef2;margin-bottom:0.6rem;flex-shrink:0;flex-wrap:wrap}
+        .tab-btn{background:#f8fafc;border:none;padding:0.4rem 1.2rem;font-weight:600;color:#64748b;cursor:pointer;border-radius:0.6rem 0.6rem 0 0;transition:all 0.2s;font-size:0.85rem;white-space:nowrap}
+        .tab-btn.active{background:#fff;color:#0f172a;border:2px solid #e9eef2;border-bottom:2px solid #fff}
+        .tab-content{display:none;flex:1;flex-direction:column;overflow:hidden}
+        .tab-content.active{display:flex}
+        .toolbar{display:flex;gap:0.5rem;margin-bottom:0.5rem;flex-wrap:wrap;align-items:center;flex-shrink:0}
+        .btn{padding:0.35rem 1rem;border-radius:1.5rem;border:1px solid #d1d9e6;background:#fff;cursor:pointer;font-size:0.75rem;font-weight:500;transition:all 0.15s;white-space:nowrap}
+        .btn-primary{background:#0f172a;color:#fff;border-color:#0f172a}
+        .btn-primary:hover{background:#1e293b}
+        .btn-danger{background:#b91c1c;color:#fff;border-color:#b91c1c}
+        .btn-danger:hover{background:#991b1b}
+        .btn-warning{background:#f59e0b;color:#fff;border-color:#f59e0b}
+        .btn-warning:hover{background:#d97706}
+        .stock-badge{margin-left:auto;background:#eef2ff;color:#4338ca;padding:0.25rem 0.8rem;border-radius:2rem;font-size:0.7rem;font-weight:600;white-space:nowrap}
+        table{width:100%;border-collapse:collapse;font-size:0.78rem}
+        th{background:#f8fafd;padding:0.45rem 0.4rem;text-align:left;font-size:0.68rem;text-transform:uppercase;border-bottom:1px solid #e2e8f0;white-space:nowrap;color:#475569;position:sticky;top:0;z-index:2}
+        td{padding:0.35rem 0.4rem;border-bottom:1px solid #edf2f7;vertical-align:middle}
+        .table-wrap{overflow:auto;border:1px solid #edf2f7;border-radius:0.4rem;flex:1;min-height:0;margin-bottom:0.4rem}
+        .badge-warn{background:#fef2f2;color:#dc2626;padding:0.12rem 0.5rem;border-radius:1rem;font-size:0.68rem;font-weight:600}
+        .form-row{display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.5rem;align-items:flex-end}
+        .form-group{display:flex;flex-direction:column;gap:0.15rem;position:relative}
+        .form-group label{font-size:0.6rem;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap}
+        input,select{padding:0.3rem 0.55rem;border:1px solid #dce2e9;border-radius:1.2rem;font-size:0.75rem;min-width:80px;background:#fff}
+        input[type="number"]{min-width:60px;width:70px}
+        .suggestions{position:absolute;top:100%;left:0;min-width:260px;background:#fff;border:1px solid #dce2e9;border-radius:0.8rem;box-shadow:0 12px 30px rgba(0,0,0,0.15);z-index:200;max-height:200px;overflow-y:auto;display:none}
+        .suggestions.show{display:block}
+        .sug-item{padding:0.5rem 0.7rem;cursor:pointer;font-size:0.73rem;border-bottom:1px solid #f1f5f9;line-height:1.4}
+        .sug-item:hover{background:#f0f4ff}
+        .sug-item strong{display:block;color:#0f172a}
+        .sug-item .info{font-size:0.65rem;color:#64748b;margin-top:0.15rem}
+        .checkbox-cell{width:28px;text-align:center}
+        .pagination{display:flex;align-items:center;justify-content:space-between;margin-top:0.3rem;font-size:0.7rem;flex-shrink:0}
+        .page-btn{padding:0.2rem 0.5rem;border-radius:1rem;border:1px solid #dce2e9;background:#fff;cursor:pointer;font-size:0.65rem}
+        .page-btn:disabled{opacity:0.4;cursor:default}
+        .page-size-select{padding:0.18rem 0.35rem;border-radius:1rem;border:1px solid #dce2e9;font-size:0.65rem;margin-left:0.3rem;background:#fff}
+        .dashboard-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:0.6rem;margin-bottom:0.6rem;flex-shrink:0}
+        .stat-card{background:#fff;border:1px solid #e9eef2;border-radius:0.6rem;padding:0.7rem 0.8rem;text-align:center;cursor:pointer;transition:transform 0.15s;user-select:none}
+        .stat-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.06)}
+        .stat-card .stat-value{font-size:1.6rem;font-weight:700;color:#0f172a}
+        .stat-card .stat-label{font-size:0.65rem;color:#64748b;margin-top:0.2rem;text-transform:uppercase;letter-spacing:0.03em}
+        .stat-card.warn-red .stat-value{color:#dc2626}
+        .stat-card.warn-orange .stat-value{color:#f59e0b}
+        .charts-row{display:flex;gap:0.6rem;margin-bottom:0.6rem;flex-shrink:0;min-height:220px}
+        .chart-box{flex:1;background:#fff;border:1px solid #e9eef2;border-radius:0.6rem;padding:0.6rem;position:relative;min-width:0}
+        .chart-box h4{font-size:0.7rem;color:#475569;margin-bottom:0.3rem;text-align:center}
+        .chart-box canvas{max-height:180px}
+        .low-stock-section{margin-bottom:0.5rem;flex-shrink:0}
+        .low-stock-section h4{font-size:0.7rem;color:#475569;margin-bottom:0.3rem}
+        .recent-section{flex:1;min-height:0;display:flex;flex-direction:column}
+        .recent-section h4{font-size:0.7rem;color:#475569;margin-bottom:0.3rem;flex-shrink:0}
+        .clickable-row{cursor:pointer;transition:background 0.15s}
+        .clickable-row:hover{background:#f8fafc}
+        .empty-state{text-align:center;padding:2rem;color:#94a3b8;font-size:0.85rem}
+        .batch-out-list{margin-bottom:0.5rem;background:#f8fafc;border-radius:0.4rem;padding:0.5rem;border:1px solid #e9eef2}
+        .batch-out-list table{font-size:0.75rem}
+        .batch-out-list th{background:#f1f5f9}
+        @media (max-width:768px){.dashboard-grid{grid-template-columns:repeat(3,1fr);gap:0.35rem}.charts-row{flex-direction:column;min-height:auto}.chart-box{min-height:180px}.stat-card .stat-value{font-size:1.3rem}}
+    </style>
+</head>
+<body>
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-box">
+            <h2>🔐 院区出入库系统</h2>
+            <div class="form-group">
+                <label>院区</label>
+                <select id="hospitalSelect">
+                    <option value="">请选择院区</option>
+                    <option value="滨江院区">滨江院区</option>
+                    <option value="湖滨院区">湖滨院区</option>
+                    <option value="莫干山院区">莫干山院区</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="loginPassword" placeholder="输入密码">
+            </div>
+            <button class="btn-login" id="loginBtn">登 录</button>
+            <div class="login-error" id="loginError">密码错误或院区未选择</div>
+        </div>
+    </div>
+
+    <div class="app" id="mainApp" style="display:none;">
+        <div class="app-header">
+            <h1 id="appTitle">📦 耗材配件出入库管理系统</h1>
+            <button class="btn-logout" id="logoutBtn">🚪 登出</button>
+        </div>
+        <div class="tabs">
+            <button class="tab-btn active" id="tabDashboardBtn">📊 看板总览</button>
+            <button class="tab-btn" id="tabInBtn">📥 入库管理</button>
+            <button class="tab-btn" id="tabOutBtn">📤 出库管理</button>
+        </div>
+
+        <!-- 看板 -->
+        <div id="tabDashboard" class="tab-content active">
+            <div class="dashboard-grid" id="dashboardCards"></div>
+            <div class="charts-row">
+                <div class="chart-box"><h4>📈 近30天出入库趋势</h4><canvas id="trendChart"></canvas></div>
+                <div class="chart-box"><h4>🍩 库存类型占比</h4><canvas id="pieChart"></canvas></div>
+            </div>
+            <div class="low-stock-section">
+                <h4>⚠️ 低库存预警 (剩余 &lt; 2)</h4>
+                <div style="display:flex;gap:0.4rem;margin-bottom:0.3rem;flex-wrap:wrap;">
+                    <input id="lowNameSearch" placeholder="物料名称过滤" style="width:140px;">
+                    <input id="lowSpecSearch" placeholder="规格过滤" style="width:140px;">
+                    <button class="btn" id="clearLowFilter">清除</button>
+                </div>
+                <div class="table-wrap" style="max-height:140px">
+                    <table id="lowStockTable"><thead><tr><th>物料名称</th><th>规格</th><th>剩余</th><th>单位</th><th>类型</th><th>库存天数</th><th>批次号</th></tr></thead><tbody></tbody></table>
+                </div>
+            </div>
+            <div class="recent-section">
+                <h4>🕐 最近出入库记录</h4>
+                <div class="table-wrap">
+                    <table id="recentTable"><thead><tr><th>时间</th><th>类型</th><th>物料名称</th><th>规格</th><th>数量</th><th>详情</th></tr></thead><tbody></tbody></table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 入库管理 -->
+        <div id="tabIn" class="tab-content">
+            <div class="toolbar">
+                <button class="btn" id="importInBtn">📂 导入Excel</button>
+                <button class="btn" id="exportInBtn">⬇️ 导出Excel</button>
+                <button class="btn btn-danger" id="batchDelInBtn" style="display:none;">🗑️ 批量删除选中</button>
+                <span class="stock-badge" id="inStockSummary">📊 暂无数据</span>
+            </div>
+            <div class="form-row">
+                <div class="form-group" style="position:relative;"><label>物料名称</label><input id="inName" placeholder="搜索名称" autocomplete="off"><div class="suggestions" id="inNameSug"></div></div>
+                <div class="form-group" style="position:relative;"><label>规格</label><input id="inSpec" placeholder="搜索规格" autocomplete="off"><div class="suggestions" id="inSpecSug"></div></div>
+                <div class="form-group"><label>数量</label><input type="number" id="inQty" value="1" min="1"></div>
+                <div class="form-group"><label>单位</label><input id="inUnit" placeholder="个/台"></div>
+                <div class="form-group"><label>类型</label><select id="inType"><option>耗材</option><option>配件</option><option>资材</option></select></div>
+                <button class="btn btn-primary" id="addInBtn">➕ 入库</button>
+            </div>
+            <div class="table-wrap">
+                <table id="inTable"><thead><tr><th class="checkbox-cell"><input type="checkbox" id="inSelectAll"></th><th>序号</th><th>批次</th><th>物料编码</th><th>物料名称</th><th>规格</th><th>数量</th><th>单位</th><th>库存天数</th><th>类型</th></tr></thead><tbody></tbody></table>
+            </div>
+            <div class="pagination" id="inPagination"></div>
+        </div>
+
+        <!-- 出库管理 -->
+        <div id="tabOut" class="tab-content">
+            <div class="toolbar">
+                <button class="btn" id="importOutBtn">📂 导入Excel</button>
+                <button class="btn" id="exportOutBtn">⬇️ 导出Excel</button>
+                <button class="btn btn-danger" id="batchDelOutBtn" style="display:none;">🗑️ 批量删除选中</button>
+                <span class="stock-badge" id="outStockSummary">📋 选择批次出库</span>
+            </div>
+            <div class="batch-out-list">
+                <div style="display:flex;gap:0.4rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:0.5rem;">
+                    <div class="form-group" style="position:relative;"><label>物料名称</label><input id="batchNameSearch" placeholder="搜索名称" autocomplete="off" style="width:110px;"><div class="suggestions" id="batchNameSug"></div></div>
+                    <div class="form-group" style="position:relative;"><label>规格</label><input id="batchSpecSearch" placeholder="搜索规格" autocomplete="off" style="width:110px;"><div class="suggestions" id="batchSpecSug"></div></div>
+                    <div class="form-group" style="position:relative;">
+                        <label>科室</label>
+                        <input id="outDeptBatch" placeholder="科室" autocomplete="off" style="width:90px;">
+                        <div class="suggestions" id="deptSug"></div>
+                    </div>
+                    <div class="form-group" style="position:relative;">
+                        <label>出库人</label>
+                        <input id="outPersonBatch" placeholder="出库人" autocomplete="off" style="width:90px;">
+                        <div class="suggestions" id="personSug"></div>
+                    </div>
+                    <button class="btn btn-primary" id="addToBatchListBtn">➕ 添加至清单</button>
+                    <button class="btn btn-warning" id="submitBatchOutBtn">📤 批量出库</button>
+                    <button class="btn" id="clearBatchListBtn">清空清单</button>
+                </div>
+                <h4 style="font-size:0.75rem;">📋 待出库清单 <span style="color:#64748b;font-size:0.65rem;">(先进先出，最早批次优先)</span></h4>
+                <div class="table-wrap" style="max-height:180px;margin-bottom:0.3rem;">
+                    <table id="batchOutListTable"><thead><tr><th>批次号</th><th>名称</th><th>规格</th><th>类型</th><th>可用库存</th><th>出库数量</th><th>单位</th><th>入库时间</th><th>操作</th></tr></thead><tbody></tbody></table>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table id="outTable"><thead><tr><th class="checkbox-cell"><input type="checkbox" id="outSelectAll"></th><th>物料名称</th><th>规格</th><th>类型</th><th>数量</th><th>单位</th><th>科室</th><th>出库人</th><th>时间</th></tr></thead><tbody></tbody></table>
+            </div>
+            <div class="pagination" id="outPagination"></div>
+        </div>
+    </div>
+
+    <script>
+        (() => {
+            const sb = supabase.createClient('https://ywwrjrytwhhcpiwtjowi.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3d3Jqcnl0d2hoY3Bpd3Rqb3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4NjI4MjksImV4cCI6MjA5OTQzODgyOX0.SeBVml0AN--V_kCG_hI-CofrNIAh1itiX3WEhQRDL80');
+
+            let inData = [], outData = [];
+            let inPage = 1, outPage = 1, inPageSize = 10, outPageSize = 10;
+            let selectedInIds = new Set(), selectedOutIds = new Set();
+            let batchOutItems = [], lowStockData = [];
+            let charts = {};
+            let currentHospital = '';
+
+            const fmt = d => { try { return new Date(d).toLocaleString('zh-CN'); } catch { return d; } };
+            const fmtDateOnly = d => { try { const dt = new Date(d); return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`; } catch { return d; } };
+            const daysSince = d => d ? Math.floor((Date.now() - new Date(d).getTime()) / 86400000) : 0;
+            const getStockDays = r => { const elapsed = daysSince(r.time); return (r.stock_days != null ? (r.stock_days || 0) : 0) + elapsed; };
+            const typePrefix = { '耗材': 'HP', '配件': 'PJ', '资材': 'ZC' };
+
+            async function generateCode(type) {
+                const prefix = typePrefix[type] || 'XX';
+                const { data } = await sb.from('in_records').select('code').ilike('code', `${prefix}-%`).eq('hospital', currentHospital).order('code', { ascending: false }).limit(1);
+                let max = 0;
+                if (data?.length) { const num = parseInt(data[0].code.replace(`${prefix}-`, '')); if (!isNaN(num)) max = num; }
+                return `${prefix}-${String(max + 1).padStart(5, '0')}`;
+            }
+
+            async function loadIn() {
+                if (!currentHospital) return;
+                const { data } = await sb.from('in_records').select('*').eq('hospital', currentHospital).order('time', { ascending: false });
+                inData = data || []; selectedInIds = new Set([...selectedInIds].filter(id => inData.some(r => r.id === id)));
+                renderInTable(); updateInBadge();
+            }
+            async function loadOut() {
+                if (!currentHospital) return;
+                const { data } = await sb.from('out_records').select('*').eq('hospital', currentHospital).order('time', { ascending: false });
+                outData = data || []; selectedOutIds = new Set([...selectedOutIds].filter(id => outData.some(r => r.id === id)));
+                renderOutTable(); updateOutBadge();
+            }
+
+            function updateInBadge() {
+                const totalRemaining = inData.reduce((s, r) => s + (r.remaining || 0), 0);
+                const kinds = new Set(inData.map(r => r.name + '|' + r.spec)).size;
+                document.getElementById('inStockSummary').textContent = `📊 库存总量: ${totalRemaining} | 种类: ${kinds} | 批次: ${inData.length}`;
+            }
+            function updateOutBadge() {
+                const totalOut = outData.reduce((s, r) => s + (r.qty || 0), 0);
+                document.getElementById('outStockSummary').textContent = `📋 累计出库: ${totalOut} | 记录: ${outData.length}`;
+            }
+
+            function renderInTable() {
+                const tbody = document.querySelector('#inTable tbody');
+                const start = (inPage - 1) * inPageSize, page = inData.slice(start, start + inPageSize);
+                document.getElementById('inSelectAll').checked = page.length > 0 && page.every(r => selectedInIds.has(r.id));
+                tbody.innerHTML = page.length ? page.map(r => {
+                    const global = inData.indexOf(r) + 1;
+                    return `<tr><td class="checkbox-cell"><input type="checkbox" class="in-row-check" data-id="${r.id}" ${selectedInIds.has(r.id) ? 'checked' : ''}></td>
+                    <td>${global}</td><td>${r.batch||''}</td><td>${r.code||''}</td><td>${r.name}</td><td>${r.spec||''}</td>
+                    <td>${r.qty}</td><td>${r.unit||''}</td><td>${getStockDays(r)}天</td><td>${r.type}</td></tr>`;
+                }).join('') : '<tr><td colspan="10" class="empty-state">📭 暂无入库记录</td></tr>';
+                const totalPages = Math.ceil(inData.length / inPageSize) || 1;
+                document.getElementById('inPagination').innerHTML = `
+                    <span>第${inPage}页/共${totalPages}页 (${inData.length}条) | 已选${selectedInIds.size}项</span>
+                    <div style="display:flex;align-items:center;gap:0.3rem;">
+                        <button class="page-btn" ${inPage<=1?'disabled':''} onclick="window._changeInPage(-1)">上一页</button>
+                        <select class="page-size-select" id="inPageSizeSelect">
+                            ${[10,20,30,40,50].map(v => `<option value="${v}" ${inPageSize===v?'selected':''}>${v}条/页</option>`).join('')}
+                        </select>
+                        <button class="page-btn" ${inPage>=totalPages?'disabled':''} onclick="window._changeInPage(1)">下一页</button>
+                    </div>`;
+                document.getElementById('inPageSizeSelect').onchange = e => { inPageSize = +e.target.value; inPage = 1; renderInTable(); };
+                updateBatchDelInBtn();
+            }
+            window._changeInPage = (delta) => { const total = Math.ceil(inData.length/inPageSize)||1; inPage = Math.max(1, Math.min(inPage+delta, total)); renderInTable(); };
+
+            function renderOutTable() {
+                const tbody = document.querySelector('#outTable tbody');
+                const start = (outPage-1)*outPageSize, page = outData.slice(start, start+outPageSize);
+                document.getElementById('outSelectAll').checked = page.length>0 && page.every(r => selectedOutIds.has(r.id));
+                tbody.innerHTML = page.length ? page.map(r => `<tr><td class="checkbox-cell"><input type="checkbox" class="out-row-check" data-id="${r.id}" ${selectedOutIds.has(r.id)?'checked':''}></td>
+                    <td>${r.name}</td><td>${r.spec||''}</td><td>${r.type || '-'}</td><td>${r.qty}</td><td>${r.unit||''}</td>
+                    <td>${r.dept||''}</td><td>${r.person||''}</td><td>${fmt(r.time)}</td></tr>`).join('') : '<tr><td colspan="9" class="empty-state">📭 暂无出库记录</td></tr>';
+                const totalPages = Math.ceil(outData.length/outPageSize)||1;
+                document.getElementById('outPagination').innerHTML = `
+                    <span>第${outPage}页/共${totalPages}页 (${outData.length}条) | 已选${selectedOutIds.size}项</span>
+                    <div style="display:flex;align-items:center;gap:0.3rem;">
+                        <button class="page-btn" ${outPage<=1?'disabled':''} onclick="window._changeOutPage(-1)">上一页</button>
+                        <select class="page-size-select" id="outPageSizeSelect">
+                            ${[10,20,30,40,50].map(v => `<option value="${v}" ${outPageSize===v?'selected':''}>${v}条/页</option>`).join('')}
+                        </select>
+                        <button class="page-btn" ${outPage>=totalPages?'disabled':''} onclick="window._changeOutPage(1)">下一页</button>
+                    </div>`;
+                document.getElementById('outPageSizeSelect').onchange = e => { outPageSize = +e.target.value; outPage = 1; renderOutTable(); };
+                updateBatchDelOutBtn();
+            }
+            window._changeOutPage = (delta) => { const total = Math.ceil(outData.length/outPageSize)||1; outPage = Math.max(1, Math.min(outPage+delta, total)); renderOutTable(); };
+
+            function updateBatchDelInBtn() { const btn = document.getElementById('batchDelInBtn'); btn.style.display = selectedInIds.size ? 'inline-block' : 'none'; btn.textContent = `🗑️ 批量删除选中 (${selectedInIds.size})`; }
+            function updateBatchDelOutBtn() { const btn = document.getElementById('batchDelOutBtn'); btn.style.display = selectedOutIds.size ? 'inline-block' : 'none'; btn.textContent = `🗑️ 批量删除选中 (${selectedOutIds.size})`; }
+
+            function setupInSearch() {
+                const nameInput = document.getElementById('inName'), nameSug = document.getElementById('inNameSug');
+                const specInput = document.getElementById('inSpec'), specSug = document.getElementById('inSpecSug');
+                function show(input, sug, filterFn) {
+                    const val = input.value.trim().toLowerCase();
+                    if (!val) { sug.classList.remove('show'); return; }
+                    const matches = filterFn(val).slice(0, 8);
+                    if (!matches.length) { sug.classList.remove('show'); return; }
+                    sug.innerHTML = matches.map(r => `<div class="sug-item" data-name="${r.name}" data-spec="${r.spec||''}" data-unit="${r.unit||''}" data-type="${r.type}">
+                        <strong>${r.name}</strong><div class="info">${r.spec||''} | ${r.unit||''} | ${r.type}</div></div>`).join('');
+                    sug.classList.add('show');
+                }
+                nameInput.addEventListener('input', () => show(nameInput, nameSug, v => [...new Map(inData.map(r => [r.name+'||'+r.spec, {name:r.name,spec:r.spec||'',unit:r.unit||'',type:r.type}])).values()].filter(r => r.name.toLowerCase().includes(v)||r.spec.toLowerCase().includes(v))));
+                specInput.addEventListener('input', () => show(specInput, specSug, v => [...new Map(inData.map(r => [r.name+'||'+r.spec, {name:r.name,spec:r.spec||'',unit:r.unit||'',type:r.type}])).values()].filter(r => r.spec.toLowerCase().includes(v)||r.name.toLowerCase().includes(v))));
+                function fill(el) { document.getElementById('inName').value = el.dataset.name; document.getElementById('inSpec').value = el.dataset.spec; document.getElementById('inUnit').value = el.dataset.unit; document.getElementById('inType').value = el.dataset.type; }
+                nameSug.addEventListener('click', e => { const el = e.target.closest('.sug-item'); if(el){fill(el);nameSug.classList.remove('show');}});
+                specSug.addEventListener('click', e => { const el = e.target.closest('.sug-item'); if(el){fill(el);specSug.classList.remove('show');}});
+                document.addEventListener('click', e => { if(!e.target.closest('#inName')&&!e.target.closest('#inNameSug'))nameSug.classList.remove('show'); if(!e.target.closest('#inSpec')&&!e.target.closest('#inSpecSug'))specSug.classList.remove('show');});
+            }
+
+            function setupDeptPersonSearch() {
+                const deptInput = document.getElementById('outDeptBatch'), deptSug = document.getElementById('deptSug');
+                const personInput = document.getElementById('outPersonBatch'), personSug = document.getElementById('personSug');
+                function showHistory(input, sugDiv, field) {
+                    const val = input.value.trim().toLowerCase();
+                    if (!val) { sugDiv.classList.remove('show'); return; }
+                    const historyMap = new Map();
+                    outData.forEach(r => {
+                        const v = (r[field] || '').trim();
+                        if (v && v.toLowerCase().includes(val)) historyMap.set(v, (historyMap.get(v) || 0) + 1);
+                    });
+                    const sorted = [...historyMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+                    if (!sorted.length) { sugDiv.classList.remove('show'); return; }
+                    sugDiv.innerHTML = sorted.map(([text]) => `<div class="sug-item" data-value="${text}"><strong>${text}</strong></div>`).join('');
+                    sugDiv.classList.add('show');
+                }
+                deptInput.addEventListener('input', () => showHistory(deptInput, deptSug, 'dept'));
+                personInput.addEventListener('input', () => showHistory(personInput, personSug, 'person'));
+                deptSug.addEventListener('click', e => { const el = e.target.closest('.sug-item'); if (el) { deptInput.value = el.dataset.value; deptSug.classList.remove('show'); } });
+                personSug.addEventListener('click', e => { const el = e.target.closest('.sug-item'); if (el) { personInput.value = el.dataset.value; personSug.classList.remove('show'); } });
+                document.addEventListener('click', e => {
+                    if (!e.target.closest('#outDeptBatch') && !e.target.closest('#deptSug')) deptSug.classList.remove('show');
+                    if (!e.target.closest('#outPersonBatch') && !e.target.closest('#personSug')) personSug.classList.remove('show');
+                });
+            }
+
+            function setupBatchSearch() {
+                const nameInput = document.getElementById('batchNameSearch'), nameSug = document.getElementById('batchNameSug');
+                const specInput = document.getElementById('batchSpecSearch'), specSug = document.getElementById('batchSpecSug');
+                function filterAvailable(nv, sv) {
+                    return inData.filter(r => r.remaining > 0 && (!nv || r.name.toLowerCase().includes(nv)) && (!sv || (r.spec||'').toLowerCase().includes(sv)))
+                        .sort((a, b) => new Date(a.time) - new Date(b.time));
+                }
+                function showSuggestions() {
+                    const nv = nameInput.value.trim().toLowerCase(), sv = specInput.value.trim().toLowerCase();
+                    if (!nv && !sv) { nameSug.classList.remove('show'); specSug.classList.remove('show'); return; }
+                    const results = filterAvailable(nv, sv).slice(0, 8);
+                    const html = results.map(r => {
+                        const stockDays = getStockDays(r);
+                        return `<div class="sug-item" data-id="${r.id}" data-name="${r.name}" data-spec="${r.spec||''}" data-unit="${r.unit||''}" data-remaining="${r.remaining}" data-batch="${r.batch||''}" data-time="${fmt(r.time)}" data-type="${r.type}">
+                            <strong>${r.name}</strong>
+                            <div class="info">${r.spec||''} | 剩${r.remaining}${r.unit||''} | ${stockDays}天 | 批次:${r.batch} | ${r.type}</div>
+                        </div>`;
+                    }).join('');
+                    nameSug.innerHTML = html; specSug.innerHTML = html;
+                    if (results.length) { nameSug.classList.add('show'); specSug.classList.add('show'); }
+                    else { nameSug.classList.remove('show'); specSug.classList.remove('show'); }
+                }
+                nameInput.addEventListener('input', showSuggestions);
+                specInput.addEventListener('input', showSuggestions);
+                function addItem(el) {
+                    const id = el.dataset.id;
+                    if (batchOutItems.some(i => i.id === id)) { alert('该批次已在清单中'); return; }
+                    batchOutItems.push({
+                        id, name: el.dataset.name, spec: el.dataset.spec, unit: el.dataset.unit,
+                        remaining: parseInt(el.dataset.remaining), batch: el.dataset.batch,
+                        time: el.dataset.time, type: el.dataset.type, qty: 1
+                    });
+                    renderBatchOutList();
+                    nameInput.value = ''; specInput.value = '';
+                    nameSug.classList.remove('show'); specSug.classList.remove('show');
+                }
+                nameSug.addEventListener('click', e => { const el = e.target.closest('.sug-item'); if(el) addItem(el); });
+                specSug.addEventListener('click', e => { const el = e.target.closest('.sug-item'); if(el) addItem(el); });
+                document.addEventListener('click', e => {
+                    if (!e.target.closest('#batchNameSearch') && !e.target.closest('#batchNameSug')) nameSug.classList.remove('show');
+                    if (!e.target.closest('#batchSpecSearch') && !e.target.closest('#batchSpecSug')) specSug.classList.remove('show');
+                });
+                document.getElementById('addToBatchListBtn').onclick = () => {
+                    const nv = nameInput.value.trim().toLowerCase(), sv = specInput.value.trim().toLowerCase();
+                    const results = filterAvailable(nv, sv);
+                    if (!results.length) return alert('无可用批次');
+                    const batch = results[0];
+                    if (batchOutItems.some(i => i.id === batch.id)) return alert('已在清单中');
+                    batchOutItems.push({ id: batch.id, name: batch.name, spec: batch.spec||'', unit: batch.unit||'', remaining: batch.remaining, batch: batch.batch, time: fmt(batch.time), type: batch.type, qty: 1 });
+                    renderBatchOutList();
+                    nameInput.value = ''; specInput.value = '';
+                };
+            }
+
+            function renderBatchOutList() {
+                const tbody = document.querySelector('#batchOutListTable tbody');
+                tbody.innerHTML = batchOutItems.length ? batchOutItems.map((item, idx) => `<tr>
+                    <td>${item.batch}</td><td>${item.name}</td><td>${item.spec}</td><td>${item.type || '-'}</td>
+                    <td>${item.remaining}</td>
+                    <td><input type="number" value="${item.qty}" min="1" max="${item.remaining}" class="batch-qty-input" data-index="${idx}" style="width:70px;"></td>
+                    <td>${item.unit}</td><td>${item.time}</td>
+                    <td><button class="btn btn-danger" style="padding:0.1rem 0.5rem;" onclick="window._removeBatchItem(${idx})">✕</button></td>
+                </tr>`).join('') : '<tr><td colspan="9" class="empty-state">📭 清单为空</td></tr>';
+            }
+            window._removeBatchItem = idx => { batchOutItems.splice(idx, 1); renderBatchOutList(); };
+            document.querySelector('#batchOutListTable tbody').addEventListener('input', e => {
+                if (e.target.classList.contains('batch-qty-input')) {
+                    const idx = +e.target.dataset.index; let val = +e.target.value;
+                    if (isNaN(val) || val < 1) val = 1;
+                    if (val > batchOutItems[idx].remaining) val = batchOutItems[idx].remaining;
+                    batchOutItems[idx].qty = val; e.target.value = val;
+                }
+            });
+            document.getElementById('clearBatchListBtn').onclick = () => { batchOutItems = []; renderBatchOutList(); };
+            document.getElementById('submitBatchOutBtn').onclick = async () => {
+                if (!batchOutItems.length) return alert('清单为空');
+                const dept = document.getElementById('outDeptBatch').value.trim();
+                const person = document.getElementById('outPersonBatch').value.trim();
+                if (!dept || !person) return alert('请填写科室和出库人');
+                for (const item of batchOutItems) {
+                    const { data: cur } = await sb.from('in_records').select('remaining').eq('id', item.id).single();
+                    if (!cur || cur.remaining < item.qty) { alert(`批次${item.batch}库存不足`); return; }
+                }
+                for (const item of batchOutItems) {
+                    const { data: cur } = await sb.from('in_records').select('remaining,type').eq('id', item.id).single();
+                    await sb.from('in_records').update({ remaining: cur.remaining - item.qty }).eq('id', item.id);
+                    await sb.from('out_records').insert({
+                        id: crypto.randomUUID(), name: item.name, spec: item.spec, type: cur.type || item.type,
+                        qty: item.qty, unit: item.unit, dept, person, time: new Date().toISOString(),
+                        source_batch_id: item.id, hospital: currentHospital
+                    });
+                }
+                alert(`批量出库成功，共${batchOutItems.length}项`);
+                batchOutItems = []; renderBatchOutList();
+                document.getElementById('outDeptBatch').value = document.getElementById('outPersonBatch').value = '';
+                await loadIn(); await loadOut(); await loadDashboard();
+            };
+
+            document.getElementById('addInBtn').onclick = async () => {
+                const name = document.getElementById('inName').value.trim(), spec = document.getElementById('inSpec').value.trim();
+                const qty = +document.getElementById('inQty').value, unit = document.getElementById('inUnit').value.trim(), type = document.getElementById('inType').value;
+                if (!name || !spec || !qty || qty < 1) return alert('请填写完整');
+                const batch = 'wl' + Date.now(), code = await generateCode(type);
+                await sb.from('in_records').insert({
+                    id: crypto.randomUUID(), batch, code, name, spec, qty, unit,
+                    time: new Date().toISOString(), type, remaining: qty, stock_days: 0,
+                    hospital: currentHospital
+                });
+                ['inName','inSpec','inUnit'].forEach(id => document.getElementById(id).value = '');
+                document.getElementById('inQty').value = '1';
+                await loadIn(); await loadOut(); await loadDashboard();
+            };
+
+            document.getElementById('batchDelInBtn').onclick = async () => {
+                if (!selectedInIds.size) return;
+                if (!confirm(`删除${selectedInIds.size}条入库记录？`)) return;
+                await sb.from('in_records').delete().in('id', [...selectedInIds]);
+                selectedInIds.clear(); await loadIn(); await loadOut(); await loadDashboard();
+            };
+            document.getElementById('batchDelOutBtn').onclick = async () => {
+                if (!selectedOutIds.size) return;
+                if (!confirm(`删除${selectedOutIds.size}条出库记录？将恢复库存。`)) return;
+                const ids = [...selectedOutIds];
+                const { data: records } = await sb.from('out_records').select('*').in('id', ids);
+                if (records) for (const rec of records) {
+                    if (rec.source_batch_id) {
+                        const { data: inRec } = await sb.from('in_records').select('remaining').eq('id', rec.source_batch_id).single();
+                        if (inRec) await sb.from('in_records').update({ remaining: inRec.remaining + rec.qty }).eq('id', rec.source_batch_id);
+                    }
+                }
+                await sb.from('out_records').delete().in('id', ids);
+                selectedOutIds.clear(); await loadOut(); await loadIn(); await loadDashboard();
+            };
+
+            document.querySelector('#inTable tbody').addEventListener('change', e => {
+                if (e.target.classList.contains('in-row-check')) {
+                    const id = e.target.dataset.id; e.target.checked ? selectedInIds.add(id) : selectedInIds.delete(id);
+                    updateBatchDelInBtn();
+                    const page = inData.slice((inPage-1)*inPageSize, inPage*inPageSize);
+                    document.getElementById('inSelectAll').checked = page.length>0 && page.every(r => selectedInIds.has(r.id));
+                }
+            });
+            document.getElementById('inSelectAll').onchange = e => {
+                const page = inData.slice((inPage-1)*inPageSize, inPage*inPageSize);
+                if(e.target.checked) page.forEach(r => selectedInIds.add(r.id)); else page.forEach(r => selectedInIds.delete(r.id));
+                renderInTable();
+            };
+            document.querySelector('#outTable tbody').addEventListener('change', e => {
+                if (e.target.classList.contains('out-row-check')) {
+                    const id = e.target.dataset.id; e.target.checked ? selectedOutIds.add(id) : selectedOutIds.delete(id);
+                    updateBatchDelOutBtn();
+                }
+            });
+            document.getElementById('outSelectAll').onchange = e => {
+                const page = outData.slice((outPage-1)*outPageSize, outPage*outPageSize);
+                if(e.target.checked) page.forEach(r => selectedOutIds.add(r.id)); else page.forEach(r => selectedOutIds.delete(r.id));
+                renderOutTable();
+            };
+
+            async function loadDashboard() {
+                const { data: inR } = await sb.from('in_records').select('*').eq('hospital', currentHospital);
+                const { data: outR } = await sb.from('out_records').select('*').eq('hospital', currentHospital);
+                const inRecs = inR || [], outRecs = outR || [];
+                const stock = inRecs.reduce((s,r) => s + (r.remaining||0), 0);
+                lowStockData = inRecs.filter(r => (r.remaining||0) < 2);
+                document.getElementById('dashboardCards').innerHTML = `
+                    <div class="stat-card" data-type="stock"><div class="stat-value">${stock}</div><div class="stat-label">总库存</div></div>
+                    <div class="stat-card" data-type="in"><div class="stat-value">${inRecs.reduce((s,r)=>s+r.qty,0)}</div><div class="stat-label">累计入库</div></div>
+                    <div class="stat-card" data-type="out"><div class="stat-value">${outRecs.reduce((s,r)=>s+r.qty,0)}</div><div class="stat-label">累计出库</div></div>
+                    <div class="stat-card" data-type="kinds"><div class="stat-value">${new Set(inRecs.map(r=>r.name+'|'+r.spec)).size}</div><div class="stat-label">物料种类</div></div>
+                    <div class="stat-card ${lowStockData.length>4?'warn-red':lowStockData.length?'warn-orange':''}" data-type="low"><div class="stat-value">${lowStockData.length}</div><div class="stat-label">低库存预警</div></div>`;
+                renderLowStock(); renderRecent(inRecs, outRecs); renderCharts(inRecs, outRecs);
+            }
+
+            function renderLowStock(fn='',fs='') {
+                let filtered = lowStockData;
+                if(fn) filtered = filtered.filter(r => r.name.toLowerCase().includes(fn.toLowerCase()));
+                if(fs) filtered = filtered.filter(r => (r.spec||'').toLowerCase().includes(fs.toLowerCase()));
+                const tbody = document.querySelector('#lowStockTable tbody');
+                tbody.innerHTML = filtered.length ? filtered.map(r => `<tr class="clickable-row" data-name="${r.name}" data-spec="${r.spec||''}">
+                    <td>${r.name}</td><td>${r.spec||''}</td><td><span class="badge-warn">${r.remaining}</span></td><td>${r.unit||''}</td><td>${r.type}</td><td>${getStockDays(r)}天</td><td>${r.batch}</td></tr>`).join('') : '<tr><td colspan="7">✅ 无预警</td></tr>';
+            }
+
+            function renderRecent(inR, outR) {
+                const merged = [...inR.map(r=>({time:r.time,dir:'入库',name:r.name,spec:r.spec,qty:r.qty,detail:r.batch})), ...outR.map(r=>({time:r.time,dir:'出库',name:r.name,spec:r.spec,qty:r.qty,detail:(r.dept||'')+'/'+(r.person||'')}))];
+                merged.sort((a,b)=>new Date(b.time)-new Date(a.time));
+                document.querySelector('#recentTable tbody').innerHTML = merged.length ? merged.slice(0,15).map(r=>`<tr><td>${fmt(r.time)}</td><td>${r.dir}</td><td>${r.name}</td><td>${r.spec}</td><td>${r.qty}</td><td>${r.detail}</td></tr>`).join('') : '<tr><td colspan="6">📭 暂无记录</td></tr>';
+            }
+
+            function renderCharts(inR, outR) {
+                if(charts.trend) charts.trend.destroy();
+                if(charts.pie) charts.pie.destroy();
+                const now = new Date(), labels=[], inByDay={}, outByDay={};
+                for(let i=29;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); const k=fmtDateOnly(d); labels.push(k); inByDay[k]=0; outByDay[k]=0; }
+                inR.forEach(r=>{ const k=fmtDateOnly(r.time); if(inByDay[k]!==undefined) inByDay[k]+=(r.qty||0); });
+                outR.forEach(r=>{ const k=fmtDateOnly(r.time); if(outByDay[k]!==undefined) outByDay[k]+=(r.qty||0); });
+                const trendCtx = document.getElementById('trendChart');
+                if(trendCtx) charts.trend = new Chart(trendCtx,{type:'line',data:{labels,datasets:[{label:'入库',data:labels.map(l=>inByDay[l]),borderColor:'#15803d',fill:true,tension:0.3},{label:'出库',data:labels.map(l=>outByDay[l]),borderColor:'#b91c1c',fill:true,tension:0.3}]}});
+                const typeMap={}; inR.forEach(r=>{ const t=r.type||'其他'; typeMap[t]=(typeMap[t]||0)+(r.remaining||0); });
+                const pieCtx = document.getElementById('pieChart');
+                if(pieCtx && Object.keys(typeMap).length) charts.pie = new Chart(pieCtx,{type:'doughnut',data:{labels:Object.keys(typeMap),datasets:[{data:Object.values(typeMap)}]}});
+            }
+
+            document.getElementById('dashboardCards').onclick = async e => {
+                const card=e.target.closest('.stat-card'); if(!card) return;
+                const type=card.dataset.type; let title,cols,rows=[];
+                if(type==='stock'){ const {data}=await sb.from('in_records').select('*').eq('hospital', currentHospital).gt('remaining',0); title='总库存'; cols=['名称','规格','剩余']; rows=data.map(r=>[r.name,r.spec,r.remaining]); }
+                else if(type==='in'){ const {data}=await sb.from('in_records').select('*').eq('hospital', currentHospital); title='入库记录'; cols=['时间','名称','规格','数量']; rows=data.map(r=>[fmt(r.time),r.name,r.spec,r.qty]); }
+                else if(type==='out'){ const {data}=await sb.from('out_records').select('*').eq('hospital', currentHospital); title='出库记录'; cols=['时间','名称','规格','数量']; rows=data.map(r=>[fmt(r.time),r.name,r.spec,r.qty]); }
+                else if(type==='kinds'){ const {data}=await sb.from('in_records').select('name,spec').eq('hospital', currentHospital); const uniq=[...new Map(data.map(r=>[r.name+'|'+r.spec,r])).values()]; title='种类'; cols=['名称','规格']; rows=uniq.map(r=>[r.name,r.spec]); }
+                else if(type==='low'){ const {data}=await sb.from('in_records').select('*').eq('hospital', currentHospital).lt('remaining',2); title='低库存'; cols=['名称','规格','剩余']; rows=data.map(r=>[r.name,r.spec,r.remaining]); }
+                if(rows.length) openDetailWindow(title,cols,rows);
+            };
+            document.getElementById('lowStockTable').onclick = async e => {
+                const row=e.target.closest('.clickable-row'); if(!row) return;
+                const name=row.dataset.name, spec=row.dataset.spec;
+                const {data:inH}=await sb.from('in_records').select('*').eq('hospital', currentHospital).eq('name',name).eq('spec',spec||'');
+                const {data:outH}=await sb.from('out_records').select('*').eq('hospital', currentHospital).eq('name',name).eq('spec',spec||'');
+                const allRows=[...inH.map(r=>[fmt(r.time),'入库',r.qty]),...outH.map(r=>[fmt(r.time),'出库',r.qty])];
+                openDetailWindow(`${name} ${spec} 历史`,['时间','方向','数量'],allRows);
+            };
+            function openDetailWindow(title,cols,rows){
+                const w=window.open('','_blank','width=900,height=650');
+                if(!w) return;
+                w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"><\/script></head><body><h2>${title}</h2><button onclick="exportToExcel()">导出Excel</button><table border="1">${cols.map(c=>`<th>${c}</th>`).join('')}${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table><script>function exportToExcel(){var data=[${JSON.stringify(cols)},${JSON.stringify(rows)}];var ws=XLSX.utils.aoa_to_sheet(data);var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Sheet1');XLSX.writeFile(wb,'${title}.xlsx');}<\/script></body></html>`);
+            }
+
+            document.getElementById('lowNameSearch').oninput = ()=> renderLowStock(document.getElementById('lowNameSearch').value, document.getElementById('lowSpecSearch').value);
+            document.getElementById('lowSpecSearch').oninput = ()=> renderLowStock(document.getElementById('lowNameSearch').value, document.getElementById('lowSpecSearch').value);
+            document.getElementById('clearLowFilter').onclick = ()=>{ document.getElementById('lowNameSearch').value=''; document.getElementById('lowSpecSearch').value=''; renderLowStock(); };
+
+            document.getElementById('importInBtn').onclick = ()=>{
+                const input=document.createElement('input'); input.type='file'; input.accept='.xlsx,.xls,.csv';
+                input.onchange = async e => {
+                    const file=e.target.files[0]; if(!file) return;
+                    const reader=new FileReader();
+                    reader.onload = async ev => {
+                        const wb=XLSX.read(ev.target.result,{type:'array'}); const ws=wb.Sheets[wb.SheetNames[0]]; const rows=XLSX.utils.sheet_to_json(ws,{header:1});
+                        if(rows.length<2) return alert('至少需要标题行和数据');
+                        const headers=rows[0];
+                        const getIdx=(...names)=>headers.findIndex(h=>names.some(n=>String(h).toLowerCase().includes(n)));
+                        const batchIdx=getIdx('批次','batch'), codeIdx=getIdx('编码','code'), nameIdx=getIdx('名称','name'), specIdx=getIdx('规格','spec'), qtyIdx=getIdx('数量','qty'), unitIdx=getIdx('单位','unit'), typeIdx=getIdx('类型','type'), timeIdx=getIdx('时间','date'), daysIdx=getIdx('库存天数','天数');
+                        if(nameIdx<0||qtyIdx<0) return alert('缺少名称或数量列');
+                        const insertData=[];
+                        for(let i=1;i<rows.length;i++){
+                            const r=rows[i]; const name=String(r[nameIdx]||'').trim(), qty=parseInt(r[qtyIdx])||0;
+                            if(!name||qty<=0) continue;
+                            let time=new Date().toISOString();
+                            if(timeIdx>=0&&r[timeIdx]){ const d=new Date(r[timeIdx]); if(!isNaN(d)) time=d.toISOString(); }
+                            let stockDays=null;
+                            if(daysIdx>=0&&r[daysIdx]!==undefined&&r[daysIdx]!=='') stockDays=parseInt(r[daysIdx])||0;
+                            const type=typeIdx>=0?String(r[typeIdx]||'耗材').trim():'耗材';
+                            const code=codeIdx>=0?String(r[codeIdx]||'').trim():await generateCode(type);
+                            insertData.push({id:crypto.randomUUID(), batch:batchIdx>=0?String(r[batchIdx]||'').trim():('wl'+Date.now()+'_'+i), code, name, spec:specIdx>=0?String(r[specIdx]||'').trim():'', qty, unit:unitIdx>=0?String(r[unitIdx]||'').trim():'', time, type, remaining:qty, stock_days:stockDays, hospital: currentHospital});
+                        }
+                        if(!insertData.length) return alert('无有效数据');
+                        const {error}=await sb.from('in_records').insert(insertData);
+                        if(error) alert('导入失败: '+error.message); else { alert(`成功导入${insertData.length}条`); await loadIn(); await loadDashboard(); }
+                    };
+                    reader.readAsArrayBuffer(file);
+                };
+                input.click();
+            };
+            document.getElementById('exportInBtn').onclick = ()=>{
+                if(!inData.length) return alert('无数据');
+                const data=[['序号','批次','物料编码','物料名称','规格','数量','单位','库存天数','类型']];
+                inData.forEach((r,idx)=>data.push([idx+1,r.batch,r.code||'',r.name,r.spec||'',r.qty,r.unit||'',getStockDays(r)+'天',r.type]));
+                const ws=XLSX.utils.aoa_to_sheet(data), wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'入库记录'); XLSX.writeFile(wb,'入库记录.xlsx');
+            };
+            document.getElementById('importOutBtn').onclick = ()=>{
+                const input=document.createElement('input'); input.type='file'; input.accept='.xlsx,.xls,.csv';
+                input.onchange = async e => {
+                    const file=e.target.files[0]; if(!file) return;
+                    const reader=new FileReader();
+                    reader.onload = async ev => {
+                        const wb=XLSX.read(ev.target.result,{type:'array'}); const ws=wb.Sheets[wb.SheetNames[0]]; const rows=XLSX.utils.sheet_to_json(ws,{header:1});
+                        const headers=rows[0];
+                        const nameIdx=headers.findIndex(h=>/名称|name/i.test(String(h))), specIdx=headers.findIndex(h=>/规格|spec/i.test(String(h))), qtyIdx=headers.findIndex(h=>/数量|qty/i.test(String(h))), deptIdx=headers.findIndex(h=>/科室|dept/i.test(String(h))), personIdx=headers.findIndex(h=>/出库人|person/i.test(String(h)));
+                        if(nameIdx<0||qtyIdx<0) return alert('缺少名称或数量列');
+                        let success=0,skip=0; const outItems=[];
+                        for(let i=1;i<rows.length;i++){
+                            const r=rows[i]; const name=String(r[nameIdx]||'').trim(), spec=specIdx>=0?String(r[specIdx]||'').trim():''; const qty=parseInt(r[qtyIdx])||0;
+                            if(!name||qty<=0) continue;
+                            const {data:batches}=await sb.from('in_records').select('*').eq('hospital', currentHospital).gt('remaining',0).eq('name',name).eq('spec',spec).order('time',{ascending:true});
+                            if(!batches||!batches.length){skip++;continue;}
+                            const batch=batches[0]; if(batch.remaining<qty){skip++;continue;}
+                            await sb.from('in_records').update({remaining:batch.remaining-qty}).eq('id',batch.id);
+                            outItems.push({id:crypto.randomUUID(),name,spec,type:batch.type,qty,unit:batch.unit,dept:deptIdx>=0?String(r[deptIdx]||'').trim():'',person:personIdx>=0?String(r[personIdx]||'').trim():'',time:new Date().toISOString(),source_batch_id:batch.id, hospital: currentHospital});
+                            success++;
+                        }
+                        if(outItems.length) await sb.from('out_records').insert(outItems);
+                        alert(`成功${success}条，跳过${skip}条`); await loadOut(); await loadIn(); await loadDashboard();
+                    };
+                    reader.readAsArrayBuffer(file);
+                };
+                input.click();
+            };
+            document.getElementById('exportOutBtn').onclick = ()=>{
+                if(!outData.length) return alert('无数据');
+                const data=[['物料名称','规格','类型','数量','单位','科室','出库人','时间']];
+                outData.forEach(r=>data.push([r.name,r.spec||'',r.type||'-',r.qty,r.unit||'',r.dept||'',r.person||'',fmt(r.time)]));
+                const ws=XLSX.utils.aoa_to_sheet(data), wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'出库记录'); XLSX.writeFile(wb,'出库记录.xlsx');
+            };
+
+            function switchTab(tab) {
+                document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+                document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+                document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+                document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Btn').classList.add('active');
+                if (tab === 'dashboard') loadDashboard();
+            }
+            document.getElementById('tabDashboardBtn').onclick = () => switchTab('dashboard');
+            document.getElementById('tabInBtn').onclick = () => switchTab('in');
+            document.getElementById('tabOutBtn').onclick = () => switchTab('out');
+
+            const loginOverlay = document.getElementById('loginOverlay');
+            const mainApp = document.getElementById('mainApp');
+            const loginBtn = document.getElementById('loginBtn');
+            const loginError = document.getElementById('loginError');
+            const appTitle = document.getElementById('appTitle');
+
+            function checkLogin() {
+                const hospital = localStorage.getItem('hospital');
+                if (hospital) {
+                    currentHospital = hospital;
+                    loginOverlay.style.display = 'none';
+                    mainApp.style.display = 'flex';
+                    appTitle.textContent = `📦 ${hospital}耗材配件出入库管理系统`;
+                    loadIn(); loadOut(); loadDashboard();
+                    setupInSearch();
+                    setupBatchSearch();
+                    setupDeptPersonSearch();
+                }
+            }
+
+            loginBtn.addEventListener('click', () => {
+                const hospital = document.getElementById('hospitalSelect').value;
+                const password = document.getElementById('loginPassword').value;
+                if (!hospital || password !== '123456') {
+                    loginError.style.display = 'block';
+                    return;
+                }
+                loginError.style.display = 'none';
+                localStorage.setItem('hospital', hospital);
+                checkLogin();
+            });
+
+            document.getElementById('logoutBtn').addEventListener('click', () => {
+                localStorage.removeItem('hospital');
+                location.reload();
+            });
+
+            if (localStorage.getItem('hospital')) {
+                checkLogin();
+            } else {
+                loginOverlay.style.display = 'flex';
+                mainApp.style.display = 'none';
+            }
+        })();
+    </script>
+</body>
+</html>
