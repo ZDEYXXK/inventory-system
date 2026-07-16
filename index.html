@@ -68,7 +68,7 @@
         .chart-box{flex:1;background:#fff;border:1px solid #e9eef2;border-radius:0.6rem;padding:0.6rem;min-width:0;display:flex;flex-direction:column}
         .chart-box h4{font-size:0.7rem;color:#475569;margin-bottom:0.3rem;text-align:center}
         .chart-box .chart-container{flex:1;position:relative;min-height:0}
-        .chart-box canvas{width:100%!important;height:100%!important;max-height:220px}
+        .chart-box canvas{max-height:220px}
         .low-stock-section{margin-bottom:0.5rem;flex-shrink:0}
         .recent-section{flex:1;min-height:0;display:flex;flex-direction:column}
         .recent-section h4{font-size:0.7rem;color:#475569;margin-bottom:0.3rem;flex-shrink:0}
@@ -89,7 +89,6 @@
     </style>
 </head>
 <body>
-    <!-- 登录界面 -->
     <div class="login-overlay" id="loginOverlay">
         <div class="login-box">
             <h2>🔐 院区出入库系统</h2>
@@ -100,7 +99,6 @@
         </div>
     </div>
 
-    <!-- 主应用 -->
     <div class="app" id="mainApp" style="display:none">
         <div class="app-header">
             <h1 id="appTitle">📦 耗材配件出入库管理系统</h1>
@@ -112,18 +110,11 @@
             <button class="tab-btn" id="tabOutBtn">📤 出库管理</button>
         </div>
 
-        <!-- 看板总览 -->
         <div id="tabDashboard" class="tab-content active">
             <div class="dashboard-grid" id="dashboardCards"></div>
             <div class="charts-row">
-                <div class="chart-box">
-                    <h4>📈 近30天出入库趋势</h4>
-                    <div class="chart-container"><canvas id="trendChart"></canvas></div>
-                </div>
-                <div class="chart-box">
-                    <h4>🍩 库存类型占比</h4>
-                    <div class="chart-container"><canvas id="pieChart"></canvas></div>
-                </div>
+                <div class="chart-box"><h4>📈 近30天出入库趋势</h4><div class="chart-container"><canvas id="trendChart"></canvas></div></div>
+                <div class="chart-box"><h4>🍩 库存类型占比</h4><div class="chart-container"><canvas id="pieChart"></canvas></div></div>
             </div>
             <div class="low-stock-section">
                 <h4>⚠️ 低库存预警 (剩余 &lt; 2)</h4>
@@ -136,7 +127,6 @@
             </div>
         </div>
 
-        <!-- 入库管理 -->
         <div id="tabIn" class="tab-content">
             <div class="toolbar">
                 <button class="btn" id="importInBtn">📂 导入Excel</button>
@@ -156,7 +146,6 @@
             <div class="pagination" id="inPagination"></div>
         </div>
 
-        <!-- 出库管理 -->
         <div id="tabOut" class="tab-content">
             <div class="toolbar">
                 <button class="btn" id="importOutBtn">📂 导入Excel</button>
@@ -183,13 +172,8 @@
 
     <script>
         (() => {
-            // ---------- Supabase 初始化 ----------
-            const sb = supabase.createClient(
-                'https://ywwrjrytwhhcpiwtjowi.supabase.co',
-                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3d3Jqcnl0d2hoY3Bpd3Rqb3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4NjI4MjksImV4cCI6MjA5OTQzODgyOX0.SeBVml0AN--V_kCG_hI-CofrNIAh1itiX3WEhQRDL80'
-            );
+            const sb = supabase.createClient('https://ywwrjrytwhhcpiwtjowi.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3d3Jqcnl0d2hoY3Bpd3Rqb3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4NjI4MjksImV4cCI6MjA5OTQzODgyOX0.SeBVml0AN--V_kCG_hI-CofrNIAh1itiX3WEhQRDL80');
 
-            // ---------- 全局状态 ----------
             let inData = [], outData = [];
             let inPage = 1, outPage = 1, inPageSize = 10, outPageSize = 10;
             let selectedInIds = new Set(), selectedOutIds = new Set();
@@ -197,15 +181,14 @@
             let charts = {};
             let currentHospital = '';
 
-            // ---------- 工具函数 ----------
             const fmt = d => { try { return new Date(d).toLocaleString('zh-CN'); } catch { return d; } };
             const fmtDateOnly = d => { try { const dt = new Date(d); return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`; } catch { return d; } };
             const daysSince = d => d ? Math.floor((Date.now() - new Date(d).getTime()) / 86400000) : 0;
             const getStockDays = r => { const elapsed = daysSince(r.time); return (r.stock_days != null ? (r.stock_days || 0) : 0) + elapsed; };
             const typePrefix = { '耗材': 'HP', '配件': 'PJ', '资材': 'ZC' };
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            const debounce = (fn, delay) => { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn.apply(this, args), delay); }; };
 
-            // ---------- 编码生成 ----------
             async function generateCode(type) {
                 const prefix = typePrefix[type] || 'XX';
                 const { data } = await sb.from('in_records').select('code').ilike('code', `${prefix}-%`).eq('hospital', currentHospital).order('code', { ascending: false }).limit(1);
@@ -214,7 +197,6 @@
                 return `${prefix}-${String(max + 1).padStart(5, '0')}`;
             }
 
-            // ---------- 数据加载 ----------
             async function loadIn() {
                 if (!currentHospital) return;
                 const { data } = await sb.from('in_records').select('*').eq('hospital', currentHospital).order('time', { ascending: false });
@@ -238,7 +220,6 @@
                 document.getElementById('outStockSummary').textContent = `📋 累计出库: ${totalOut} | 记录: ${outData.length}`;
             }
 
-            // ---------- 表格渲染 ----------
             function renderInTable() {
                 const tbody = document.querySelector('#inTable tbody');
                 const start = (inPage - 1) * inPageSize, page = inData.slice(start, start + inPageSize);
@@ -282,7 +263,6 @@
             function updateBatchDelInBtn() { const btn = document.getElementById('batchDelInBtn'); btn.style.display = selectedInIds.size ? 'inline-block' : 'none'; btn.textContent = `🗑️ 批量删除选中 (${selectedInIds.size})`; }
             function updateBatchDelOutBtn() { const btn = document.getElementById('batchDelOutBtn'); btn.style.display = selectedOutIds.size ? 'inline-block' : 'none'; btn.textContent = `🗑️ 批量删除选中 (${selectedOutIds.size})`; }
 
-            // ---------- 建议框定位 ----------
             function positionSuggestion(sugDiv, inputElement) {
                 if (!sugDiv.classList.contains('show')) return;
                 const rect = inputElement.getBoundingClientRect();
@@ -297,22 +277,20 @@
                 sugDiv.style.width = sugWidth + 'px';
             }
 
-            // ---------- 入库搜索 ----------
             function setupInSearch() {
                 const nameInput = document.getElementById('inName'), nameSug = document.getElementById('inNameSug');
                 const specInput = document.getElementById('inSpec'), specSug = document.getElementById('inSpecSug');
                 const getUniqueItems = () => [...new Map(inData.map(r => [r.name+'||'+r.spec, {name:r.name, spec:r.spec||'', unit:r.unit||'', type:r.type}])).values()];
-                function show(input, sug) {
+                const show = debounce((input, sug) => {
                     const val = input.value.trim().toLowerCase();
                     if (!val) { sug.classList.remove('show'); return; }
                     const items = getUniqueItems().filter(r => r.name.toLowerCase().includes(val) || r.spec.toLowerCase().includes(val)).slice(0,8);
                     if (!items.length) { sug.classList.remove('show'); return; }
                     sug.innerHTML = items.map(r => `<div class="sug-item" data-name="${r.name}" data-spec="${r.spec}" data-unit="${r.unit}" data-type="${r.type}"><strong>${r.name}</strong><div class="info">${r.spec} | ${r.unit} | ${r.type}</div></div>`).join('');
                     sug.classList.add('show'); positionSuggestion(sug, input);
-                }
+                }, 250);
                 nameInput.addEventListener('input', () => show(nameInput, nameSug));
                 specInput.addEventListener('input', () => show(specInput, specSug));
-                // 获得焦点时，如果已有内容则显示建议
                 nameInput.addEventListener('focus', () => { if (nameInput.value.trim()) show(nameInput, nameSug); });
                 specInput.addEventListener('focus', () => { if (specInput.value.trim()) show(specInput, specSug); });
                 function fill(el) { document.getElementById('inName').value=el.dataset.name; document.getElementById('inSpec').value=el.dataset.spec; document.getElementById('inUnit').value=el.dataset.unit; document.getElementById('inType').value=el.dataset.type; }
@@ -323,15 +301,14 @@
                 document.addEventListener('click', e => { if(!e.target.closest('#inName')&&!e.target.closest('#inNameSug'))nameSug.classList.remove('show'); if(!e.target.closest('#inSpec')&&!e.target.closest('#inSpecSug'))specSug.classList.remove('show');});
             }
 
-            // ---------- 出库搜索（先进先出 + 自动带出）----------
             function setupOutSearch() {
                 const nameInput = document.getElementById('outNameSearch'), nameSug = document.getElementById('outNameSug');
                 const specInput = document.getElementById('outSpecSearch'), specSug = document.getElementById('outSpecSug');
                 function filterAvailable(nv, sv) {
                     return inData.filter(r => r.remaining > 0 && (!nv || r.name.toLowerCase().includes(nv)) && (!sv || (r.spec||'').toLowerCase().includes(sv)))
-                        .sort((a, b) => new Date(a.time) - new Date(b.time)); // 先进先出
+                        .sort((a, b) => new Date(a.time) - new Date(b.time));
                 }
-                function showSuggestions() {
+                const showSuggestions = debounce(() => {
                     const nv = nameInput.value.trim().toLowerCase(), sv = specInput.value.trim().toLowerCase();
                     if (!nv && !sv) { nameSug.classList.remove('show'); specSug.classList.remove('show'); return; }
                     const results = filterAvailable(nv, sv).slice(0, 8);
@@ -343,12 +320,19 @@
                     nameSug.innerHTML = html; specSug.innerHTML = html;
                     nameSug.classList.add('show'); specSug.classList.add('show');
                     positionSuggestion(nameSug, nameInput); positionSuggestion(specSug, specInput);
-                }
-                nameInput.addEventListener('input', showSuggestions);
-                specInput.addEventListener('input', showSuggestions);
-                // 获得焦点时自动带出建议（若已有文字）
-                nameInput.addEventListener('focus', () => { if (nameInput.value.trim()) showSuggestions(); });
-                specInput.addEventListener('focus', () => { if (specInput.value.trim()) showSuggestions(); });
+                }, 250);
+
+                let composing = false;
+                const onCompositionStart = () => { composing = true; };
+                const onCompositionEnd = () => { composing = false; showSuggestions(); };
+                nameInput.addEventListener('compositionstart', onCompositionStart);
+                nameInput.addEventListener('compositionend', onCompositionEnd);
+                nameInput.addEventListener('input', () => { if (!composing) showSuggestions(); });
+                nameInput.addEventListener('focus', () => { if (nameInput.value.trim() && !composing) showSuggestions(); });
+                specInput.addEventListener('compositionstart', onCompositionStart);
+                specInput.addEventListener('compositionend', onCompositionEnd);
+                specInput.addEventListener('input', () => { if (!composing) showSuggestions(); });
+                specInput.addEventListener('focus', () => { if (specInput.value.trim() && !composing) showSuggestions(); });
 
                 function addToBatch(el) {
                     const id = el.dataset.id;
@@ -360,17 +344,17 @@
                 }
                 [nameSug, specSug].forEach(sug => {
                     sug.addEventListener('touchend', e => { e.preventDefault(); const el=e.target.closest('.sug-item'); if(el) addToBatch(el); });
-                    sug.addEventListener('click', e => { const el=e.target.closest('.sug-item'); if(el && !isIOS) addToBatch(el); });
+                    sug.addEventListener('click', e => { if (!isIOS) { const el=e.target.closest('.sug-item'); if(el) addToBatch(el); } });
                 });
                 document.addEventListener('click', e => { if(!e.target.closest('#outNameSearch')&&!e.target.closest('#outNameSug'))nameSug.classList.remove('show'); if(!e.target.closest('#outSpecSearch')&&!e.target.closest('#outSpecSug'))specSug.classList.remove('show');});
+                window.addEventListener('resize', () => { if (nameSug.classList.contains('show')) positionSuggestion(nameSug, nameInput); if (specSug.classList.contains('show')) positionSuggestion(specSug, specInput); });
             }
 
-            // ---------- 科室/出库人历史建议 ----------
             function setupDeptPersonSearch() {
                 const deptInput = document.getElementById('outDept'), deptSug = document.getElementById('deptSug');
                 const personInput = document.getElementById('outPerson'), personSug = document.getElementById('personSug');
-                function setupHistory(input, sug, field) {
-                    input.addEventListener('input', () => {
+                const setupHistory = (input, sug, field) => {
+                    const show = debounce(() => {
                         const val = input.value.trim().toLowerCase();
                         if (!val) { sug.classList.remove('show'); return; }
                         const map = new Map(); outData.forEach(r => { const v=(r[field]||'').trim(); if(v && v.toLowerCase().includes(val)) map.set(v,(map.get(v)||0)+1); });
@@ -378,17 +362,17 @@
                         if(!sorted.length){sug.classList.remove('show');return;}
                         sug.innerHTML = sorted.map(([text]) => `<div class="sug-item" data-value="${text}"><strong>${text}</strong></div>`).join('');
                         sug.classList.add('show'); positionSuggestion(sug, input);
-                    });
-                    input.addEventListener('focus', () => { if (input.value.trim()) input.dispatchEvent(new Event('input')); });
+                    }, 200);
+                    input.addEventListener('input', show);
+                    input.addEventListener('focus', () => { if (input.value.trim()) show(); });
                     sug.addEventListener('touchend', e => { e.preventDefault(); const el=e.target.closest('.sug-item'); if(el){input.value=el.dataset.value; sug.classList.remove('show');}});
-                    sug.addEventListener('click', e => { const el=e.target.closest('.sug-item'); if(el && !isIOS){input.value=el.dataset.value; sug.classList.remove('show');}});
-                }
+                    sug.addEventListener('click', e => { if(!isIOS){ const el=e.target.closest('.sug-item'); if(el){input.value=el.dataset.value; sug.classList.remove('show');}}});
+                };
                 setupHistory(deptInput, deptSug, 'dept');
                 setupHistory(personInput, personSug, 'person');
                 document.addEventListener('click', e => { if(!e.target.closest('#outDept')&&!e.target.closest('#deptSug'))deptSug.classList.remove('show'); if(!e.target.closest('#outPerson')&&!e.target.closest('#personSug'))personSug.classList.remove('show');});
             }
 
-            // ---------- 出库清单 ----------
             function renderBatchOutList() {
                 const tbody = document.querySelector('#batchOutListTable tbody');
                 tbody.innerHTML = batchOutItems.length ? batchOutItems.map((item, idx) => `<tr>
@@ -407,14 +391,11 @@
                     batchOutItems[idx].qty = val; e.target.value = val;
                 }
             });
-
             document.getElementById('clearBatchListBtn').onclick = () => { batchOutItems = []; renderBatchOutList(); };
 
-            // ---------- 出库按钮（统一提交清单）----------
             document.getElementById('outBtn').onclick = async () => {
                 if (!batchOutItems.length) return alert('请先添加批次到清单（在搜索框中输入后点击建议项添加）');
-                const dept = document.getElementById('outDept').value.trim();
-                const person = document.getElementById('outPerson').value.trim();
+                const dept = document.getElementById('outDept').value.trim(), person = document.getElementById('outPerson').value.trim();
                 if (!dept || !person) return alert('请填写科室和出库人');
                 for (const item of batchOutItems) {
                     const { data: cur } = await sb.from('in_records').select('remaining').eq('id', item.id).single();
@@ -431,7 +412,6 @@
                 await loadIn(); await loadOut(); await loadDashboard();
             };
 
-            // ---------- 入库提交 ----------
             document.getElementById('addInBtn').onclick = async () => {
                 const name = document.getElementById('inName').value.trim(), spec = document.getElementById('inSpec').value.trim();
                 const qty = +document.getElementById('inQty').value, unit = document.getElementById('inUnit').value.trim(), type = document.getElementById('inType').value;
@@ -443,7 +423,6 @@
                 await loadIn(); await loadOut(); await loadDashboard();
             };
 
-            // ---------- 批量删除 ----------
             document.getElementById('batchDelInBtn').onclick = async () => {
                 if (!selectedInIds.size) return;
                 if (!confirm(`确定删除${selectedInIds.size}条入库记录？`)) return;
@@ -465,7 +444,6 @@
                 selectedOutIds.clear(); await loadOut(); await loadIn(); await loadDashboard();
             };
 
-            // 复选框事件
             document.querySelector('#inTable tbody').addEventListener('change', e => {
                 if (e.target.classList.contains('in-row-check')) {
                     const id = e.target.dataset.id; e.target.checked ? selectedInIds.add(id) : selectedInIds.delete(id);
@@ -489,7 +467,6 @@
                 renderOutTable();
             };
 
-            // ---------- 看板 ----------
             async function loadDashboard() {
                 const { data: inR } = await sb.from('in_records').select('*').eq('hospital', currentHospital);
                 const { data: outR } = await sb.from('out_records').select('*').eq('hospital', currentHospital);
@@ -526,60 +503,80 @@
                 inR.forEach(r=>{ const k=fmtDateOnly(r.time); if(inByDay[k]!==undefined) inByDay[k]+=(r.qty||0); });
                 outR.forEach(r=>{ const k=fmtDateOnly(r.time); if(outByDay[k]!==undefined) outByDay[k]+=(r.qty||0); });
                 const trendCtx = document.getElementById('trendChart');
-                if(trendCtx) {
-                    charts.trend = new Chart(trendCtx,{
-                        type:'line',
-                        data:{labels,datasets:[{label:'入库',data:labels.map(l=>inByDay[l]),borderColor:'#15803d'},{label:'出库',data:labels.map(l=>outByDay[l]),borderColor:'#b91c1c'}]},
-                        options:{ responsive:true, maintainAspectRatio:false }
-                    });
-                }
+                if(trendCtx) charts.trend = new Chart(trendCtx,{type:'line',data:{labels,datasets:[{label:'入库',data:labels.map(l=>inByDay[l]),borderColor:'#15803d'},{label:'出库',data:labels.map(l=>outByDay[l]),borderColor:'#b91c1c'}]},options:{responsive:true,maintainAspectRatio:false}});
                 const typeMap={}; inR.forEach(r=>{ const t=r.type||'其他'; typeMap[t]=(typeMap[t]||0)+(r.remaining||0); });
                 const pieCtx = document.getElementById('pieChart');
-                if(pieCtx && Object.keys(typeMap).length) {
-                    charts.pie = new Chart(pieCtx,{
-                        type:'doughnut',
-                        data:{labels:Object.keys(typeMap),datasets:[{data:Object.values(typeMap)}]},
-                        options:{
-                            responsive:true,
-                            maintainAspectRatio:false,
-                            plugins:{
-                                legend:{ position:'bottom', labels:{ boxWidth:12, padding:8, font:{size:11} } }
-                            }
-                        }
-                    });
-                }
+                if(pieCtx && Object.keys(typeMap).length) charts.pie = new Chart(pieCtx,{type:'doughnut',data:{labels:Object.keys(typeMap),datasets:[{data:Object.values(typeMap)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:8,font:{size:11}}}}}});
             }
 
-            // 看板卡片点击弹窗（保留原功能）
-            document.getElementById('dashboardCards').onclick = async e => {
-                const card=e.target.closest('.stat-card'); if(!card) return;
-                const type=card.dataset.type; let title,cols,rows=[];
-                if(type==='stock'){ const {data}=await sb.from('in_records').select('*').eq('hospital', currentHospital).gt('remaining',0); title='总库存'; cols=['名称','规格','剩余']; rows=data.map(r=>[r.name,r.spec,r.remaining]); }
-                else if(type==='in'){ const {data}=await sb.from('in_records').select('*').eq('hospital', currentHospital); title='入库记录'; cols=['时间','名称','规格','数量']; rows=data.map(r=>[fmt(r.time),r.name,r.spec,r.qty]); }
-                else if(type==='out'){ const {data}=await sb.from('out_records').select('*').eq('hospital', currentHospital); title='出库记录'; cols=['时间','名称','规格','数量']; rows=data.map(r=>[fmt(r.time),r.name,r.spec,r.qty]); }
-                else if(type==='kinds'){ const {data}=await sb.from('in_records').select('name,spec').eq('hospital', currentHospital); const uniq=[...new Map(data.map(r=>[r.name+'|'+r.spec,r])).values()]; title='种类'; cols=['名称','规格']; rows=uniq.map(r=>[r.name,r.spec]); }
-                else if(type==='low'){ const {data}=await sb.from('in_records').select('*').eq('hospital', currentHospital).lt('remaining',2); title='低库存'; cols=['名称','规格','剩余']; rows=data.map(r=>[r.name,r.spec,r.remaining]); }
-                if(rows.length) openDetailWindow(title,cols,rows);
-            };
-            document.getElementById('lowStockTable').onclick = async e => {
-                const row=e.target.closest('.clickable-row'); if(!row) return;
-                const name=row.dataset.name, spec=row.dataset.spec;
-                const {data:inH}=await sb.from('in_records').select('*').eq('hospital', currentHospital).eq('name',name).eq('spec',spec||'');
-                const {data:outH}=await sb.from('out_records').select('*').eq('hospital', currentHospital).eq('name',name).eq('spec',spec||'');
-                const allRows=[...inH.map(r=>[fmt(r.time),'入库',r.qty]),...outH.map(r=>[fmt(r.time),'出库',r.qty])];
-                openDetailWindow(`${name} ${spec} 历史`,['时间','方向','数量'],allRows);
-            };
-            function openDetailWindow(title,cols,rows){
-                const w=window.open('','_blank','width=900,height=650');
-                if(!w) return;
-                w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"><\/script></head><body><h2>${title}</h2><button onclick="exportToExcel()">导出Excel</button><table border="1">${cols.map(c=>`<th>${c}</th>`).join('')}${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table><script>function exportToExcel(){var data=[${JSON.stringify(cols)},${JSON.stringify(rows)}];var ws=XLSX.utils.aoa_to_sheet(data);var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Sheet1');XLSX.writeFile(wb,'${title}.xlsx');}<\/script></body></html>`);
+            // --- 看板卡片点击交互 & 导出 ---
+            function openDetailWindow(title, cols, rows) {
+                const w = window.open('', '_blank', 'width=900,height=650');
+                if (!w) return;
+                const tableHtml = `<table border="1" style="border-collapse:collapse;width:100%">${cols.map(c => `<th>${c}</th>`).join('')}${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</table>`;
+                const exportScript = `
+                function exportToExcel(){
+                    var data = [${JSON.stringify(cols)}, ${JSON.stringify(rows)}];
+                    var ws = XLSX.utils.aoa_to_sheet(data);
+                    var wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+                    XLSX.writeFile(wb, '${title}.xlsx');
+                }`;
+                w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"><\/script></head><body><h2>${title}</h2><button onclick="exportToExcel()" style="padding:8px 16px;margin-bottom:12px">📥 导出Excel</button>${tableHtml}<script>${exportScript}<\/script></body></html>`);
             }
+
+            document.getElementById('dashboardCards').onclick = async e => {
+                const card = e.target.closest('.stat-card');
+                if (!card) return;
+                const type = card.dataset.type;
+                let title, cols, rows = [];
+                if (type === 'stock') {
+                    const { data } = await sb.from('in_records').select('*').eq('hospital', currentHospital).gt('remaining', 0);
+                    title = '总库存明细'; cols = ['名称', '规格', '剩余', '单位', '类型', '批次'];
+                    rows = data ? data.map(r => [r.name, r.spec || '', r.remaining, r.unit || '', r.type, r.batch]) : [];
+                } else if (type === 'in') {
+                    const { data } = await sb.from('in_records').select('*').eq('hospital', currentHospital);
+                    title = '入库记录'; cols = ['时间', '名称', '规格', '数量', '单位', '类型'];
+                    rows = data ? data.map(r => [fmt(r.time), r.name, r.spec || '', r.qty, r.unit || '', r.type]) : [];
+                } else if (type === 'out') {
+                    const { data } = await sb.from('out_records').select('*').eq('hospital', currentHospital);
+                    title = '出库记录'; cols = ['时间', '名称', '规格', '数量', '单位', '科室', '出库人'];
+                    rows = data ? data.map(r => [fmt(r.time), r.name, r.spec || '', r.qty, r.unit || '', r.dept || '', r.person || '']) : [];
+                } else if (type === 'kinds') {
+                    const { data } = await sb.from('in_records').select('name,spec').eq('hospital', currentHospital);
+                    const uniq = [...new Map(data ? data.map(r => [r.name + '|' + r.spec, r]) : []).values()];
+                    title = '物料种类'; cols = ['名称', '规格'];
+                    rows = uniq.map(r => [r.name, r.spec || '']);
+                } else if (type === 'low') {
+                    const { data } = await sb.from('in_records').select('*').eq('hospital', currentHospital).lt('remaining', 2);
+                    title = '低库存预警'; cols = ['名称', '规格', '剩余', '单位', '类型', '批次'];
+                    rows = data ? data.map(r => [r.name, r.spec || '', r.remaining, r.unit || '', r.type, r.batch]) : [];
+                }
+                if (rows.length) openDetailWindow(title, cols, rows);
+                else alert('暂无数据');
+            };
+
+            document.getElementById('lowStockTable').onclick = async e => {
+                const row = e.target.closest('.clickable-row');
+                if (!row) return;
+                const name = row.dataset.name, spec = row.dataset.spec;
+                const { data: inH } = await sb.from('in_records').select('*').eq('hospital', currentHospital).eq('name', name).eq('spec', spec || '');
+                const { data: outH } = await sb.from('out_records').select('*').eq('hospital', currentHospital).eq('name', name).eq('spec', spec || '');
+                const rows = [
+                    ...(inH || []).map(r => [fmt(r.time), '入库', r.qty, r.unit || '', r.batch]),
+                    ...(outH || []).map(r => [fmt(r.time), '出库', r.qty, r.unit || '', r.dept + '/' + r.person])
+                ];
+                rows.sort((a, b) => new Date(b[0]) - new Date(a[0]));
+                const title = `${name} ${spec} 历史记录`;
+                const cols = ['时间', '方向', '数量', '单位', '详情'];
+                openDetailWindow(title, cols, rows);
+            };
 
             document.getElementById('lowNameSearch').oninput = ()=> renderLowStock(document.getElementById('lowNameSearch').value, document.getElementById('lowSpecSearch').value);
             document.getElementById('lowSpecSearch').oninput = ()=> renderLowStock(document.getElementById('lowNameSearch').value, document.getElementById('lowSpecSearch').value);
             document.getElementById('clearLowFilter').onclick = ()=>{ document.getElementById('lowNameSearch').value=''; document.getElementById('lowSpecSearch').value=''; renderLowStock(); };
 
-            // ---------- 导入导出 ----------
+            // 导入导出
             document.getElementById('importInBtn').onclick = () => {
                 const input=document.createElement('input'); input.type='file'; input.accept='.xlsx,.xls,.csv';
                 input.onchange = async e => {
@@ -653,7 +650,6 @@
                 const ws=XLSX.utils.aoa_to_sheet(data), wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'出库记录'); XLSX.writeFile(wb,'出库记录.xlsx');
             };
 
-            // ---------- 标签切换 ----------
             function switchTab(tab) {
                 document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
                 document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
@@ -668,7 +664,6 @@
             document.getElementById('tabInBtn').onclick = () => switchTab('in');
             document.getElementById('tabOutBtn').onclick = () => switchTab('out');
 
-            // ---------- 登录 ----------
             function checkLogin() {
                 const hospital = localStorage.getItem('hospital');
                 if (hospital) {
@@ -699,7 +694,11 @@
                 localStorage.setItem('activeTab', 'dashboard');
                 checkLogin();
             };
-            document.getElementById('logoutBtn').onclick = () => { localStorage.removeItem('hospital'); location.reload(); };
+
+            document.getElementById('logoutBtn').onclick = () => {
+                localStorage.removeItem('hospital');
+                location.reload();
+            };
 
             checkLogin();
         })();
