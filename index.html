@@ -154,10 +154,10 @@
                 <span class="stock-badge" id="outStockSummary">📋 累计出库统计</span>
             </div>
             <div class="form-row">
-                <div class="form-group" style="position:relative"><label>物料名称</label><input id="outNameSearch" placeholder="搜索名称" autocomplete="off" style="width:110px"><div class="suggestions" id="outNameSug"></div></div>
-                <div class="form-group" style="position:relative"><label>规格</label><input id="outSpecSearch" placeholder="搜索规格" autocomplete="off" style="width:110px"><div class="suggestions" id="outSpecSug"></div></div>
-                <div class="form-group" style="position:relative"><label>科室</label><input id="outDept" placeholder="科室" autocomplete="off" style="width:90px"><div class="suggestions" id="deptSug"></div></div>
-                <div class="form-group" style="position:relative"><label>出库人</label><input id="outPerson" placeholder="出库人" autocomplete="off" style="width:90px"><div class="suggestions" id="personSug"></div></div>
+                <div class="form-group" style="position:relative"><label>物料名称</label><input id="outNameSearch" placeholder="搜索名称" autocomplete="off"><div class="suggestions" id="outNameSug"></div></div>
+                <div class="form-group" style="position:relative"><label>规格</label><input id="outSpecSearch" placeholder="搜索规格" autocomplete="off"><div class="suggestions" id="outSpecSug"></div></div>
+                <div class="form-group" style="position:relative"><label>科室</label><input id="outDept" placeholder="科室" autocomplete="off"><div class="suggestions" id="deptSug"></div></div>
+                <div class="form-group" style="position:relative"><label>出库人</label><input id="outPerson" placeholder="出库人" autocomplete="off"><div class="suggestions" id="personSug"></div></div>
                 <button class="btn btn-primary" id="outBtn">📤 出库</button>
                 <button class="btn" id="clearBatchListBtn">清空清单</button>
             </div>
@@ -277,6 +277,7 @@
                 sugDiv.style.width = sugWidth + 'px';
             }
 
+            // 入库搜索 (正常)
             function setupInSearch() {
                 const nameInput = document.getElementById('inName'), nameSug = document.getElementById('inNameSug');
                 const specInput = document.getElementById('inSpec'), specSug = document.getElementById('inSpecSug');
@@ -301,55 +302,100 @@
                 document.addEventListener('click', e => { if(!e.target.closest('#inName')&&!e.target.closest('#inNameSug'))nameSug.classList.remove('show'); if(!e.target.closest('#inSpec')&&!e.target.closest('#inSpecSug'))specSug.classList.remove('show');});
             }
 
+            // 出库搜索（修复核心：中文输入 + 防抖 + focus 触发）
             function setupOutSearch() {
                 const nameInput = document.getElementById('outNameSearch'), nameSug = document.getElementById('outNameSug');
                 const specInput = document.getElementById('outSpecSearch'), specSug = document.getElementById('outSpecSug');
+
                 function filterAvailable(nv, sv) {
                     return inData.filter(r => r.remaining > 0 && (!nv || r.name.toLowerCase().includes(nv)) && (!sv || (r.spec||'').toLowerCase().includes(sv)))
                         .sort((a, b) => new Date(a.time) - new Date(b.time));
                 }
+
+                // 防抖显示建议
                 const showSuggestions = debounce(() => {
                     const nv = nameInput.value.trim().toLowerCase(), sv = specInput.value.trim().toLowerCase();
-                    if (!nv && !sv) { nameSug.classList.remove('show'); specSug.classList.remove('show'); return; }
+                    if (!nv && !sv) {
+                        nameSug.classList.remove('show'); specSug.classList.remove('show');
+                        return;
+                    }
                     const results = filterAvailable(nv, sv).slice(0, 8);
-                    if (!results.length) { nameSug.classList.remove('show'); specSug.classList.remove('show'); return; }
+                    if (!results.length) {
+                        nameSug.classList.remove('show'); specSug.classList.remove('show');
+                        return;
+                    }
                     const html = results.map(r => {
                         const stockDays = getStockDays(r);
-                        return `<div class="sug-item" data-id="${r.id}" data-name="${r.name}" data-spec="${r.spec||''}" data-unit="${r.unit||''}" data-remaining="${r.remaining}" data-batch="${r.batch||''}" data-type="${r.type}" data-time="${fmt(r.time)}"><strong>${r.name}</strong><div class="info">${r.spec||''} | 剩${r.remaining}${r.unit||''} | ${stockDays}天 | 批次:${r.batch}</div></div>`;
+                        return `<div class="sug-item" data-id="${r.id}" data-name="${r.name}" data-spec="${r.spec||''}" data-unit="${r.unit||''}" data-remaining="${r.remaining}" data-batch="${r.batch||''}" data-type="${r.type}" data-time="${fmt(r.time)}">
+                            <strong>${r.name}</strong>
+                            <div class="info">${r.spec||''} | 剩${r.remaining}${r.unit||''} | ${stockDays}天 | 批次:${r.batch}</div>
+                        </div>`;
                     }).join('');
                     nameSug.innerHTML = html; specSug.innerHTML = html;
                     nameSug.classList.add('show'); specSug.classList.add('show');
-                    positionSuggestion(nameSug, nameInput); positionSuggestion(specSug, specInput);
+                    positionSuggestion(nameSug, nameInput);
+                    positionSuggestion(specSug, specInput);
                 }, 250);
 
+                // 中文输入法处理
                 let composing = false;
                 const onCompositionStart = () => { composing = true; };
                 const onCompositionEnd = () => { composing = false; showSuggestions(); };
-                nameInput.addEventListener('compositionstart', onCompositionStart);
-                nameInput.addEventListener('compositionend', onCompositionEnd);
-                nameInput.addEventListener('input', () => { if (!composing) showSuggestions(); });
-                nameInput.addEventListener('focus', () => { if (nameInput.value.trim() && !composing) showSuggestions(); });
-                specInput.addEventListener('compositionstart', onCompositionStart);
-                specInput.addEventListener('compositionend', onCompositionEnd);
-                specInput.addEventListener('input', () => { if (!composing) showSuggestions(); });
-                specInput.addEventListener('focus', () => { if (specInput.value.trim() && !composing) showSuggestions(); });
 
+                [nameInput, specInput].forEach(input => {
+                    input.addEventListener('compositionstart', onCompositionStart);
+                    input.addEventListener('compositionend', onCompositionEnd);
+                    input.addEventListener('input', () => { if (!composing) showSuggestions(); });
+                    input.addEventListener('focus', () => {
+                        if (input.value.trim() && !composing) showSuggestions();
+                    });
+                });
+
+                // 点击建议项添加至清单
                 function addToBatch(el) {
                     const id = el.dataset.id;
-                    if (batchOutItems.some(i => i.id === id)) { alert('该批次已在清单中'); return; }
-                    batchOutItems.push({ id, name: el.dataset.name, spec: el.dataset.spec, unit: el.dataset.unit, remaining: parseInt(el.dataset.remaining), batch: el.dataset.batch, time: el.dataset.time, type: el.dataset.type, qty: 1 });
+                    if (batchOutItems.some(i => i.id === id)) {
+                        alert('该批次已在清单中');
+                        return;
+                    }
+                    batchOutItems.push({
+                        id, name: el.dataset.name, spec: el.dataset.spec,
+                        unit: el.dataset.unit, remaining: parseInt(el.dataset.remaining),
+                        batch: el.dataset.batch, time: el.dataset.time,
+                        type: el.dataset.type, qty: 1
+                    });
                     renderBatchOutList();
                     nameInput.value = ''; specInput.value = '';
                     nameSug.classList.remove('show'); specSug.classList.remove('show');
                 }
+
                 [nameSug, specSug].forEach(sug => {
-                    sug.addEventListener('touchend', e => { e.preventDefault(); const el=e.target.closest('.sug-item'); if(el) addToBatch(el); });
-                    sug.addEventListener('click', e => { if (!isIOS) { const el=e.target.closest('.sug-item'); if(el) addToBatch(el); } });
+                    sug.addEventListener('touchend', e => {
+                        e.preventDefault();
+                        const el = e.target.closest('.sug-item');
+                        if (el) addToBatch(el);
+                    });
+                    sug.addEventListener('click', e => {
+                        if (isIOS) return;
+                        const el = e.target.closest('.sug-item');
+                        if (el) addToBatch(el);
+                    });
                 });
-                document.addEventListener('click', e => { if(!e.target.closest('#outNameSearch')&&!e.target.closest('#outNameSug'))nameSug.classList.remove('show'); if(!e.target.closest('#outSpecSearch')&&!e.target.closest('#outSpecSug'))specSug.classList.remove('show');});
-                window.addEventListener('resize', () => { if (nameSug.classList.contains('show')) positionSuggestion(nameSug, nameInput); if (specSug.classList.contains('show')) positionSuggestion(specSug, specInput); });
+
+                // 点击外部关闭建议
+                document.addEventListener('click', e => {
+                    if (!e.target.closest('#outNameSearch') && !e.target.closest('#outNameSug')) nameSug.classList.remove('show');
+                    if (!e.target.closest('#outSpecSearch') && !e.target.closest('#outSpecSug')) specSug.classList.remove('show');
+                });
+
+                // 窗口改变时重新定位
+                window.addEventListener('resize', () => {
+                    if (nameSug.classList.contains('show')) positionSuggestion(nameSug, nameInput);
+                    if (specSug.classList.contains('show')) positionSuggestion(specSug, specInput);
+                });
             }
 
+            // 科室/出库人历史记录建议
             function setupDeptPersonSearch() {
                 const deptInput = document.getElementById('outDept'), deptSug = document.getElementById('deptSug');
                 const personInput = document.getElementById('outPerson'), personSug = document.getElementById('personSug');
@@ -373,6 +419,7 @@
                 document.addEventListener('click', e => { if(!e.target.closest('#outDept')&&!e.target.closest('#deptSug'))deptSug.classList.remove('show'); if(!e.target.closest('#outPerson')&&!e.target.closest('#personSug'))personSug.classList.remove('show');});
             }
 
+            // 出库清单
             function renderBatchOutList() {
                 const tbody = document.querySelector('#batchOutListTable tbody');
                 tbody.innerHTML = batchOutItems.length ? batchOutItems.map((item, idx) => `<tr>
@@ -412,6 +459,7 @@
                 await loadIn(); await loadOut(); await loadDashboard();
             };
 
+            // 入库提交
             document.getElementById('addInBtn').onclick = async () => {
                 const name = document.getElementById('inName').value.trim(), spec = document.getElementById('inSpec').value.trim();
                 const qty = +document.getElementById('inQty').value, unit = document.getElementById('inUnit').value.trim(), type = document.getElementById('inType').value;
@@ -423,6 +471,7 @@
                 await loadIn(); await loadOut(); await loadDashboard();
             };
 
+            // 批量删除
             document.getElementById('batchDelInBtn').onclick = async () => {
                 if (!selectedInIds.size) return;
                 if (!confirm(`确定删除${selectedInIds.size}条入库记录？`)) return;
@@ -467,6 +516,7 @@
                 renderOutTable();
             };
 
+            // 看板
             async function loadDashboard() {
                 const { data: inR } = await sb.from('in_records').select('*').eq('hospital', currentHospital);
                 const { data: outR } = await sb.from('out_records').select('*').eq('hospital', currentHospital);
@@ -481,20 +531,17 @@
                     <div class="stat-card ${lowStockData.length>4?'warn-red':lowStockData.length?'warn-orange':''}" data-type="low"><div class="stat-value">${lowStockData.length}</div><div class="stat-label">低库存预警</div></div>`;
                 renderLowStock(); renderRecent(inRecs, outRecs); renderCharts(inRecs, outRecs);
             }
-
             function renderLowStock(fn='',fs='') {
                 let filtered = lowStockData;
                 if(fn) filtered = filtered.filter(r => r.name.toLowerCase().includes(fn.toLowerCase()));
                 if(fs) filtered = filtered.filter(r => (r.spec||'').toLowerCase().includes(fs.toLowerCase()));
                 document.querySelector('#lowStockTable tbody').innerHTML = filtered.length ? filtered.map(r => `<tr class="clickable-row" data-name="${r.name}" data-spec="${r.spec||''}"><td>${r.name}</td><td>${r.spec||''}</td><td><span class="badge-warn">${r.remaining}</span></td><td>${r.unit||''}</td><td>${r.type}</td><td>${getStockDays(r)}天</td><td>${r.batch}</td></tr>`).join('') : '<tr><td colspan="7">✅ 无预警</td></tr>';
             }
-
             function renderRecent(inR, outR) {
                 const merged = [...inR.map(r=>({time:r.time,dir:'入库',name:r.name,spec:r.spec,qty:r.qty,detail:r.batch})), ...outR.map(r=>({time:r.time,dir:'出库',name:r.name,spec:r.spec,qty:r.qty,detail:(r.dept||'')+'/'+(r.person||'')}))];
                 merged.sort((a,b)=>new Date(b.time)-new Date(a.time));
                 document.querySelector('#recentTable tbody').innerHTML = merged.length ? merged.slice(0,15).map(r=>`<tr><td>${fmt(r.time)}</td><td>${r.dir}</td><td>${r.name}</td><td>${r.spec}</td><td>${r.qty}</td><td>${r.detail}</td></tr>`).join('') : '<tr><td colspan="6">📭 暂无记录</td></tr>';
             }
-
             function renderCharts(inR, outR) {
                 if(charts.trend) charts.trend.destroy();
                 if(charts.pie) charts.pie.destroy();
@@ -509,67 +556,33 @@
                 if(pieCtx && Object.keys(typeMap).length) charts.pie = new Chart(pieCtx,{type:'doughnut',data:{labels:Object.keys(typeMap),datasets:[{data:Object.values(typeMap)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:8,font:{size:11}}}}}});
             }
 
-            // --- 看板卡片点击交互 & 导出 ---
             function openDetailWindow(title, cols, rows) {
                 const w = window.open('', '_blank', 'width=900,height=650');
                 if (!w) return;
                 const tableHtml = `<table border="1" style="border-collapse:collapse;width:100%">${cols.map(c => `<th>${c}</th>`).join('')}${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</table>`;
-                const exportScript = `
-                function exportToExcel(){
-                    var data = [${JSON.stringify(cols)}, ${JSON.stringify(rows)}];
-                    var ws = XLSX.utils.aoa_to_sheet(data);
-                    var wb = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
-                    XLSX.writeFile(wb, '${title}.xlsx');
-                }`;
-                w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"><\/script></head><body><h2>${title}</h2><button onclick="exportToExcel()" style="padding:8px 16px;margin-bottom:12px">📥 导出Excel</button>${tableHtml}<script>${exportScript}<\/script></body></html>`);
+                w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"><\/script></head><body><h2>${title}</h2><button onclick="exportToExcel()" style="padding:8px 16px;margin-bottom:12px">📥 导出Excel</button>${tableHtml}<script>function exportToExcel(){var data=[${JSON.stringify(cols)},${JSON.stringify(rows)}];var ws=XLSX.utils.aoa_to_sheet(data);var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Sheet1');XLSX.writeFile(wb,'${title}.xlsx');}<\/script></body></html>`);
             }
 
             document.getElementById('dashboardCards').onclick = async e => {
-                const card = e.target.closest('.stat-card');
-                if (!card) return;
-                const type = card.dataset.type;
-                let title, cols, rows = [];
-                if (type === 'stock') {
-                    const { data } = await sb.from('in_records').select('*').eq('hospital', currentHospital).gt('remaining', 0);
-                    title = '总库存明细'; cols = ['名称', '规格', '剩余', '单位', '类型', '批次'];
-                    rows = data ? data.map(r => [r.name, r.spec || '', r.remaining, r.unit || '', r.type, r.batch]) : [];
-                } else if (type === 'in') {
-                    const { data } = await sb.from('in_records').select('*').eq('hospital', currentHospital);
-                    title = '入库记录'; cols = ['时间', '名称', '规格', '数量', '单位', '类型'];
-                    rows = data ? data.map(r => [fmt(r.time), r.name, r.spec || '', r.qty, r.unit || '', r.type]) : [];
-                } else if (type === 'out') {
-                    const { data } = await sb.from('out_records').select('*').eq('hospital', currentHospital);
-                    title = '出库记录'; cols = ['时间', '名称', '规格', '数量', '单位', '科室', '出库人'];
-                    rows = data ? data.map(r => [fmt(r.time), r.name, r.spec || '', r.qty, r.unit || '', r.dept || '', r.person || '']) : [];
-                } else if (type === 'kinds') {
-                    const { data } = await sb.from('in_records').select('name,spec').eq('hospital', currentHospital);
-                    const uniq = [...new Map(data ? data.map(r => [r.name + '|' + r.spec, r]) : []).values()];
-                    title = '物料种类'; cols = ['名称', '规格'];
-                    rows = uniq.map(r => [r.name, r.spec || '']);
-                } else if (type === 'low') {
-                    const { data } = await sb.from('in_records').select('*').eq('hospital', currentHospital).lt('remaining', 2);
-                    title = '低库存预警'; cols = ['名称', '规格', '剩余', '单位', '类型', '批次'];
-                    rows = data ? data.map(r => [r.name, r.spec || '', r.remaining, r.unit || '', r.type, r.batch]) : [];
-                }
+                const card = e.target.closest('.stat-card'); if (!card) return;
+                const type = card.dataset.type; let title, cols, rows = [];
+                if (type === 'stock') { const { data } = await sb.from('in_records').select('*').eq('hospital', currentHospital).gt('remaining',0); title='总库存明细'; cols=['名称','规格','剩余','单位','类型','批次']; rows = data ? data.map(r=>[r.name,r.spec||'',r.remaining,r.unit||'',r.type,r.batch]) : []; }
+                else if (type === 'in') { const { data } = await sb.from('in_records').select('*').eq('hospital', currentHospital); title='入库记录'; cols=['时间','名称','规格','数量','单位','类型']; rows = data ? data.map(r=>[fmt(r.time),r.name,r.spec||'',r.qty,r.unit||'',r.type]) : []; }
+                else if (type === 'out') { const { data } = await sb.from('out_records').select('*').eq('hospital', currentHospital); title='出库记录'; cols=['时间','名称','规格','数量','单位','科室','出库人']; rows = data ? data.map(r=>[fmt(r.time),r.name,r.spec||'',r.qty,r.unit||'',r.dept||'',r.person||'']) : []; }
+                else if (type === 'kinds') { const { data } = await sb.from('in_records').select('name,spec').eq('hospital', currentHospital); const uniq=[...new Map(data ? data.map(r=>[r.name+'|'+r.spec,r]) : []).values()]; title='物料种类'; cols=['名称','规格']; rows=uniq.map(r=>[r.name,r.spec||'']); }
+                else if (type === 'low') { const { data } = await sb.from('in_records').select('*').eq('hospital', currentHospital).lt('remaining',2); title='低库存预警'; cols=['名称','规格','剩余','单位','类型','批次']; rows = data ? data.map(r=>[r.name,r.spec||'',r.remaining,r.unit||'',r.type,r.batch]) : []; }
                 if (rows.length) openDetailWindow(title, cols, rows);
                 else alert('暂无数据');
             };
 
             document.getElementById('lowStockTable').onclick = async e => {
-                const row = e.target.closest('.clickable-row');
-                if (!row) return;
-                const name = row.dataset.name, spec = row.dataset.spec;
-                const { data: inH } = await sb.from('in_records').select('*').eq('hospital', currentHospital).eq('name', name).eq('spec', spec || '');
-                const { data: outH } = await sb.from('out_records').select('*').eq('hospital', currentHospital).eq('name', name).eq('spec', spec || '');
-                const rows = [
-                    ...(inH || []).map(r => [fmt(r.time), '入库', r.qty, r.unit || '', r.batch]),
-                    ...(outH || []).map(r => [fmt(r.time), '出库', r.qty, r.unit || '', r.dept + '/' + r.person])
-                ];
-                rows.sort((a, b) => new Date(b[0]) - new Date(a[0]));
-                const title = `${name} ${spec} 历史记录`;
-                const cols = ['时间', '方向', '数量', '单位', '详情'];
-                openDetailWindow(title, cols, rows);
+                const row = e.target.closest('.clickable-row'); if (!row) return;
+                const name=row.dataset.name, spec=row.dataset.spec;
+                const { data:inH } = await sb.from('in_records').select('*').eq('hospital', currentHospital).eq('name',name).eq('spec',spec||'');
+                const { data:outH } = await sb.from('out_records').select('*').eq('hospital', currentHospital).eq('name',name).eq('spec',spec||'');
+                const rows = [...(inH||[]).map(r=>[fmt(r.time),'入库',r.qty,r.unit||'',r.batch]), ...(outH||[]).map(r=>[fmt(r.time),'出库',r.qty,r.unit||'',r.dept+'/'+r.person])];
+                rows.sort((a,b)=>new Date(b[0])-new Date(a[0]));
+                openDetailWindow(`${name} ${spec} 历史记录`, ['时间','方向','数量','单位','详情'], rows);
             };
 
             document.getElementById('lowNameSearch').oninput = ()=> renderLowStock(document.getElementById('lowNameSearch').value, document.getElementById('lowSpecSearch').value);
