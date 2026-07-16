@@ -2,117 +2,89 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <title>耗材配件 · 出入库管理系统</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
-        html,body{width:100vw;height:100vh;overflow:hidden;background:#f4f7fc;font-family:system-ui,sans-serif;color:#1e293b}
+        html,body{width:100vw;height:100vh;overflow:hidden;background:#f4f7fc;font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;color:#1e293b;-webkit-text-size-adjust:100%}
         body{padding:0.5rem;display:flex;flex-direction:column}
-        .login-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(6px)}
+        @supports (-webkit-touch-callout:none){input,select,textarea{font-size:16px!important}input[type=number]{font-size:16px!important}}
+        .login-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
         .login-box{background:#fff;border-radius:1.2rem;padding:2.5rem 2rem;box-shadow:0 25px 50px rgba(0,0,0,0.25);width:380px;max-width:90%;text-align:center}
-        .login-box h2{font-size:1.4rem;margin-bottom:1.8rem;color:#0f172a;display:flex;align-items:center;justify-content:center;gap:0.5rem}
+        .login-box h2{font-size:1.4rem;margin-bottom:1.8rem;color:#0f172a}
         .login-box .form-group{margin-bottom:1.2rem;text-align:left}
-        .login-box label{display:block;font-size:0.75rem;font-weight:600;color:#475569;margin-bottom:0.3rem;text-transform:uppercase;letter-spacing:0.05em}
-        .login-box select,.login-box input{width:100%;padding:0.7rem 0.9rem;border:1px solid #dce2e9;border-radius:0.8rem;font-size:0.9rem;background:#fff;outline:none;transition:border 0.2s}
-        .login-box select:focus,.login-box input:focus{border-color:#0f172a}
-        .login-box .btn-login{width:100%;padding:0.75rem;background:#0f172a;color:#fff;border:none;border-radius:0.8rem;font-size:1rem;font-weight:600;cursor:pointer;transition:background 0.2s;margin-top:0.8rem}
-        .login-box .btn-login:hover{background:#1e293b}
+        .login-box label{display:block;font-size:0.75rem;font-weight:600;color:#475569;margin-bottom:0.3rem}
+        .login-box select,.login-box input{width:100%;padding:0.7rem 0.9rem;border:1px solid #dce2e9;border-radius:0.8rem;font-size:16px;background:#fff;outline:none}
+        .login-box .btn-login{width:100%;padding:0.75rem;background:#0f172a;color:#fff;border:none;border-radius:0.8rem;font-size:1rem;font-weight:600;cursor:pointer;margin-top:0.8rem}
         .login-error{color:#dc2626;font-size:0.8rem;margin-top:0.6rem;display:none}
         .app{width:100%;height:100%;background:#fff;border-radius:0.5rem;padding:0.8rem 1rem;box-shadow:0 4px 16px rgba(0,0,0,0.04);display:flex;flex-direction:column;overflow:hidden}
         .app-header{display:flex;align-items:center;justify-content:space-between;flex-shrink:0;margin-bottom:0.5rem}
-        .app-header h1{font-size:1.2rem;display:flex;align-items:center;gap:0.4rem}
-        .btn-logout{padding:0.5rem 1.2rem;border-radius:1.5rem;border:1px solid #d1d9e6;background:#fff;cursor:pointer;font-size:0.85rem;font-weight:500;color:#64748b;transition:all 0.15s}
-        .btn-logout:hover{background:#fee2e2;color:#b91c1c;border-color:#fecaca}
+        .app-header h1{font-size:1.2rem}
+        .btn-logout{padding:0.5rem 1.2rem;border-radius:1.5rem;border:1px solid #d1d9e6;background:#fff;cursor:pointer;font-size:0.85rem}
         .tabs{display:flex;gap:0.3rem;border-bottom:2px solid #e9eef2;margin-bottom:0.6rem;flex-shrink:0;flex-wrap:wrap}
-        .tab-btn{background:#f8fafc;border:none;padding:0.4rem 1.2rem;font-weight:600;color:#64748b;cursor:pointer;border-radius:0.6rem 0.6rem 0 0;transition:all 0.2s;font-size:0.85rem;white-space:nowrap}
+        .tab-btn{background:#f8fafc;border:none;padding:0.4rem 1.2rem;font-weight:600;color:#64748b;cursor:pointer;border-radius:0.6rem 0.6rem 0 0;font-size:0.85rem;white-space:nowrap}
         .tab-btn.active{background:#fff;color:#0f172a;border:2px solid #e9eef2;border-bottom:2px solid #fff}
         .tab-content{display:none;flex:1;flex-direction:column;overflow:hidden}
-        /* 关键修复：允许垂直滚动，并支持 iOS 平滑滚动 */
-        .tab-content.active{
-            display:flex;
-            overflow-y:auto;
-            -webkit-overflow-scrolling:touch;
-        }
+        .tab-content.active{display:flex;overflow-y:auto;-webkit-overflow-scrolling:touch}
         .toolbar{display:flex;gap:0.5rem;margin-bottom:0.5rem;flex-wrap:wrap;align-items:center;flex-shrink:0}
-        .btn{padding:0.35rem 1rem;border-radius:1.5rem;border:1px solid #d1d9e6;background:#fff;cursor:pointer;font-size:0.75rem;font-weight:500;transition:all 0.15s;white-space:nowrap}
+        .btn{padding:0.35rem 1rem;border-radius:1.5rem;border:1px solid #d1d9e6;background:#fff;cursor:pointer;font-size:0.75rem;font-weight:500;white-space:nowrap}
         .btn-primary{background:#0f172a;color:#fff;border-color:#0f172a}
-        .btn-primary:hover{background:#1e293b}
         .btn-danger{background:#b91c1c;color:#fff;border-color:#b91c1c}
-        .btn-danger:hover{background:#991b1b}
         .btn-warning{background:#f59e0b;color:#fff;border-color:#f59e0b}
-        .btn-warning:hover{background:#d97706}
-        .stock-badge{margin-left:auto;background:#eef2ff;color:#4338ca;padding:0.25rem 0.8rem;border-radius:2rem;font-size:0.7rem;font-weight:600;white-space:nowrap}
+        .stock-badge{margin-left:auto;background:#eef2ff;color:#4338ca;padding:0.25rem 0.8rem;border-radius:2rem;font-size:0.7rem;font-weight:600}
         table{width:100%;border-collapse:collapse;font-size:0.78rem}
-        th{background:#f8fafd;padding:0.45rem 0.4rem;text-align:left;font-size:0.68rem;text-transform:uppercase;border-bottom:1px solid #e2e8f0;white-space:nowrap;color:#475569;position:sticky;top:0;z-index:2}
-        td{padding:0.35rem 0.4rem;border-bottom:1px solid #edf2f7;vertical-align:middle}
-        .table-wrap{overflow:auto;border:1px solid #edf2f7;border-radius:0.4rem;flex:1;min-height:0;margin-bottom:0.4rem}
+        th{background:#f8fafd;padding:0.45rem 0.4rem;text-align:left;font-size:0.68rem;text-transform:uppercase;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:2;color:#475569}
+        td{padding:0.35rem 0.4rem;border-bottom:1px solid #edf2f7}
+        .table-wrap{overflow:auto;border:1px solid #edf2f7;border-radius:0.4rem;flex:1;min-height:0;margin-bottom:0.4rem;-webkit-overflow-scrolling:touch}
         .badge-warn{background:#fef2f2;color:#dc2626;padding:0.12rem 0.5rem;border-radius:1rem;font-size:0.68rem;font-weight:600}
         .form-row{display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.5rem;align-items:flex-end}
         .form-group{display:flex;flex-direction:column;gap:0.15rem;position:relative}
-        .form-group label{font-size:0.6rem;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.02em;white-space:nowrap}
-        input,select{padding:0.3rem 0.55rem;border:1px solid #dce2e9;border-radius:1.2rem;font-size:0.75rem;min-width:80px;background:#fff}
-        input[type="number"]{min-width:60px;width:70px}
-        .suggestions{position:absolute;top:100%;left:0;min-width:260px;background:#fff;border:1px solid #dce2e9;border-radius:0.8rem;box-shadow:0 12px 30px rgba(0,0,0,0.15);z-index:200;max-height:200px;overflow-y:auto;display:none}
+        .form-group label{font-size:0.6rem;font-weight:600;color:#475569;text-transform:uppercase;white-space:nowrap}
+        input,select{padding:0.3rem 0.55rem;border:1px solid #dce2e9;border-radius:1.2rem;font-size:16px;min-width:80px;background:#fff}
+        input[type=number]{min-width:60px;width:70px}
+        .suggestions{position:fixed;background:rgba(255,255,255,0.98);border:1px solid #dce2e9;border-radius:0.8rem;box-shadow:0 12px 30px rgba(0,0,0,0.2);z-index:10000;max-height:250px;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;pointer-events:auto;max-width:90vw;min-width:200px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
         .suggestions.show{display:block}
-        .sug-item{padding:0.5rem 0.7rem;cursor:pointer;font-size:0.73rem;border-bottom:1px solid #f1f5f9;line-height:1.4}
-        .sug-item:hover{background:#f0f4ff}
-        .sug-item strong{display:block;color:#0f172a}
-        .sug-item .info{font-size:0.65rem;color:#64748b;margin-top:0.15rem}
+        .sug-item{padding:0.6rem 0.8rem;cursor:pointer;font-size:0.8rem;border-bottom:1px solid #f1f5f9;-webkit-tap-highlight-color:rgba(0,0,0,0.1);user-select:none}
+        .sug-item:active{background:#e0e7ff}
+        .sug-item:last-child{border-bottom:none}
+        .sug-item strong{display:block;color:#0f172a;font-size:0.85rem}
+        .sug-item .info{font-size:0.7rem;color:#64748b;margin-top:0.15rem}
         .checkbox-cell{width:28px;text-align:center}
         .pagination{display:flex;align-items:center;justify-content:space-between;margin-top:0.3rem;font-size:0.7rem;flex-shrink:0}
         .page-btn{padding:0.2rem 0.5rem;border-radius:1rem;border:1px solid #dce2e9;background:#fff;cursor:pointer;font-size:0.65rem}
-        .page-btn:disabled{opacity:0.4;cursor:default}
+        .page-btn:disabled{opacity:0.4}
         .page-size-select{padding:0.18rem 0.35rem;border-radius:1rem;border:1px solid #dce2e9;font-size:0.65rem;margin-left:0.3rem;background:#fff}
         .dashboard-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:0.6rem;margin-bottom:0.6rem;flex-shrink:0}
-        .stat-card{background:#fff;border:1px solid #e9eef2;border-radius:0.6rem;padding:0.7rem 0.8rem;text-align:center;cursor:pointer;transition:transform 0.15s;user-select:none}
+        .stat-card{background:#fff;border:1px solid #e9eef2;border-radius:0.6rem;padding:0.7rem 0.8rem;text-align:center;cursor:pointer;user-select:none}
         .stat-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.06)}
         .stat-card .stat-value{font-size:1.6rem;font-weight:700;color:#0f172a}
-        .stat-card .stat-label{font-size:0.65rem;color:#64748b;margin-top:0.2rem;text-transform:uppercase;letter-spacing:0.03em}
+        .stat-card .stat-label{font-size:0.65rem;color:#64748b;margin-top:0.2rem}
         .stat-card.warn-red .stat-value{color:#dc2626}
         .stat-card.warn-orange .stat-value{color:#f59e0b}
-        .charts-row{display:flex;gap:0.6rem;margin-bottom:0.6rem;flex-shrink:0;min-height:220px}
-        .chart-box{flex:1;background:#fff;border:1px solid #e9eef2;border-radius:0.6rem;padding:0.6rem;position:relative;min-width:0}
+        .charts-row{display:flex;gap:0.6rem;margin-bottom:0.6rem;flex-shrink:0;min-height:240px}
+        .chart-box{flex:1;background:#fff;border:1px solid #e9eef2;border-radius:0.6rem;padding:0.6rem;min-width:0;display:flex;flex-direction:column}
         .chart-box h4{font-size:0.7rem;color:#475569;margin-bottom:0.3rem;text-align:center}
-        .chart-box canvas{max-height:180px}
+        .chart-box .chart-container{flex:1;position:relative;min-height:0}
+        .chart-box canvas{width:100%!important;height:100%!important;max-height:220px}
         .low-stock-section{margin-bottom:0.5rem;flex-shrink:0}
-        .low-stock-section h4{font-size:0.7rem;color:#475569;margin-bottom:0.3rem}
         .recent-section{flex:1;min-height:0;display:flex;flex-direction:column}
         .recent-section h4{font-size:0.7rem;color:#475569;margin-bottom:0.3rem;flex-shrink:0}
-        .clickable-row{cursor:pointer;transition:background 0.15s}
+        .clickable-row{cursor:pointer}
         .clickable-row:hover{background:#f8fafc}
-        .empty-state{text-align:center;padding:2rem;color:#94a3b8;font-size:0.85rem}
-        .batch-out-list{margin-bottom:0.5rem;background:#f8fafc;border-radius:0.4rem;padding:0.5rem;border:1px solid #e9eef2}
-        .batch-out-list table{font-size:0.75rem}
-        .batch-out-list th{background:#f1f5f9}
-        @media (max-width:768px){
+        .empty-state{text-align:center;padding:2rem;color:#94a3b8}
+        .batch-out-list{margin-top:0.5rem;background:#f8fafc;border-radius:0.4rem;padding:0.5rem;border:1px solid #e9eef2}
+        @media(max-width:768px){
             body{padding:0.2rem}
-            .app{padding:0.5rem;border-radius:0.3rem}
+            .app{padding:0.5rem}
             .dashboard-grid{grid-template-columns:repeat(2,1fr);gap:0.35rem}
-            .stat-card{padding:0.5rem 0.6rem}
-            .stat-card .stat-value{font-size:1.4rem}
-            .charts-row{flex-direction:column;min-height:auto}
+            .charts-row{flex-direction:column}
             .chart-box{min-height:200px}
-            .tabs{gap:0.2rem}
-            .tab-btn{padding:0.3rem 0.8rem;font-size:0.75rem}
-            .form-row{gap:0.25rem}
-            .form-group{min-width:60px}
-            input,select{padding:0.25rem 0.45rem;font-size:0.7rem;min-width:60px}
-            .btn{padding:0.3rem 0.7rem;font-size:0.7rem}
-            .toolbar{gap:0.3rem}
-            .page-btn{padding:0.15rem 0.4rem;font-size:0.6rem}
-            .page-size-select{padding:0.15rem 0.3rem;font-size:0.6rem}
-            .batch-out-list .form-row > .form-group{width:48%}
-            .batch-out-list input{width:100%}
-        }
-        @media (max-width:480px){
-            .dashboard-grid{grid-template-columns:repeat(2,1fr);gap:0.25rem}
-            .stat-card .stat-value{font-size:1.2rem}
-            .stat-card .stat-label{font-size:0.6rem}
-            .charts-row{flex-direction:column;gap:0.4rem}
-            .chart-box{min-height:180px}
+            .chart-box canvas{max-height:180px}
+            .suggestions{max-width:95vw}
+            .sug-item{padding:0.8rem 1rem}
         }
     </style>
 </head>
@@ -121,25 +93,15 @@
     <div class="login-overlay" id="loginOverlay">
         <div class="login-box">
             <h2>🔐 院区出入库系统</h2>
-            <div class="form-group">
-                <label>院区</label>
-                <select id="hospitalSelect">
-                    <option value="">请选择院区</option>
-                    <option value="滨江院区">滨江院区</option>
-                    <option value="湖滨院区">湖滨院区</option>
-                    <option value="莫干山院区">莫干山院区</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>密码</label>
-                <input type="password" id="loginPassword" placeholder="输入密码">
-            </div>
+            <div class="form-group"><label>院区</label><select id="hospitalSelect"><option value="">请选择院区</option><option value="滨江院区">滨江院区</option><option value="湖滨院区">湖滨院区</option><option value="莫干山院区">莫干山院区</option></select></div>
+            <div class="form-group"><label>密码</label><input type="password" id="loginPassword" placeholder="输入密码"></div>
             <button class="btn-login" id="loginBtn">登 录</button>
             <div class="login-error" id="loginError">密码错误或院区未选择</div>
         </div>
     </div>
 
-    <div class="app" id="mainApp" style="display:none;">
+    <!-- 主应用 -->
+    <div class="app" id="mainApp" style="display:none">
         <div class="app-header">
             <h1 id="appTitle">📦 耗材配件出入库管理系统</h1>
             <button class="btn-logout" id="logoutBtn">🚪 登出</button>
@@ -154,25 +116,23 @@
         <div id="tabDashboard" class="tab-content active">
             <div class="dashboard-grid" id="dashboardCards"></div>
             <div class="charts-row">
-                <div class="chart-box"><h4>📈 近30天出入库趋势</h4><canvas id="trendChart"></canvas></div>
-                <div class="chart-box"><h4>🍩 库存类型占比</h4><canvas id="pieChart"></canvas></div>
+                <div class="chart-box">
+                    <h4>📈 近30天出入库趋势</h4>
+                    <div class="chart-container"><canvas id="trendChart"></canvas></div>
+                </div>
+                <div class="chart-box">
+                    <h4>🍩 库存类型占比</h4>
+                    <div class="chart-container"><canvas id="pieChart"></canvas></div>
+                </div>
             </div>
             <div class="low-stock-section">
                 <h4>⚠️ 低库存预警 (剩余 &lt; 2)</h4>
-                <div style="display:flex;gap:0.4rem;margin-bottom:0.3rem;flex-wrap:wrap;">
-                    <input id="lowNameSearch" placeholder="物料名称过滤" style="width:140px;">
-                    <input id="lowSpecSearch" placeholder="规格过滤" style="width:140px;">
-                    <button class="btn" id="clearLowFilter">清除</button>
-                </div>
-                <div class="table-wrap" style="max-height:140px">
-                    <table id="lowStockTable"><thead><tr><th>物料名称</th><th>规格</th><th>剩余</th><th>单位</th><th>类型</th><th>库存天数</th><th>批次号</th></tr></thead><tbody></tbody></table>
-                </div>
+                <div style="display:flex;gap:0.4rem;margin-bottom:0.3rem"><input id="lowNameSearch" placeholder="物料名称过滤" style="width:140px"><input id="lowSpecSearch" placeholder="规格过滤" style="width:140px"><button class="btn" id="clearLowFilter">清除</button></div>
+                <div class="table-wrap" style="max-height:140px"><table id="lowStockTable"><thead><tr><th>物料名称</th><th>规格</th><th>剩余</th><th>单位</th><th>类型</th><th>库存天数</th><th>批次号</th></tr></thead><tbody></tbody></table></div>
             </div>
             <div class="recent-section">
                 <h4>🕐 最近出入库记录</h4>
-                <div class="table-wrap">
-                    <table id="recentTable"><thead><tr><th>时间</th><th>类型</th><th>物料名称</th><th>规格</th><th>数量</th><th>详情</th></tr></thead><tbody></tbody></table>
-                </div>
+                <div class="table-wrap"><table id="recentTable"><thead><tr><th>时间</th><th>类型</th><th>物料名称</th><th>规格</th><th>数量</th><th>详情</th></tr></thead><tbody></tbody></table></div>
             </div>
         </div>
 
@@ -181,20 +141,18 @@
             <div class="toolbar">
                 <button class="btn" id="importInBtn">📂 导入Excel</button>
                 <button class="btn" id="exportInBtn">⬇️ 导出Excel</button>
-                <button class="btn btn-danger" id="batchDelInBtn" style="display:none;">🗑️ 批量删除选中</button>
+                <button class="btn btn-danger" id="batchDelInBtn" style="display:none">🗑️ 批量删除选中</button>
                 <span class="stock-badge" id="inStockSummary">📊 暂无数据</span>
             </div>
             <div class="form-row">
-                <div class="form-group" style="position:relative;"><label>物料名称</label><input id="inName" placeholder="搜索名称" autocomplete="off"><div class="suggestions" id="inNameSug"></div></div>
-                <div class="form-group" style="position:relative;"><label>规格</label><input id="inSpec" placeholder="搜索规格" autocomplete="off"><div class="suggestions" id="inSpecSug"></div></div>
+                <div class="form-group" style="position:relative"><label>物料名称</label><input id="inName" placeholder="搜索名称" autocomplete="off"><div class="suggestions" id="inNameSug"></div></div>
+                <div class="form-group" style="position:relative"><label>规格</label><input id="inSpec" placeholder="搜索规格" autocomplete="off"><div class="suggestions" id="inSpecSug"></div></div>
                 <div class="form-group"><label>数量</label><input type="number" id="inQty" value="1" min="1"></div>
                 <div class="form-group"><label>单位</label><input id="inUnit" placeholder="个/台"></div>
                 <div class="form-group"><label>类型</label><select id="inType"><option>耗材</option><option>配件</option><option>资材</option></select></div>
                 <button class="btn btn-primary" id="addInBtn">➕ 入库</button>
             </div>
-            <div class="table-wrap">
-                <table id="inTable"><thead><tr><th class="checkbox-cell"><input type="checkbox" id="inSelectAll"></th><th>序号</th><th>批次</th><th>物料编码</th><th>物料名称</th><th>规格</th><th>数量</th><th>单位</th><th>库存天数</th><th>类型</th></tr></thead><tbody></tbody></table>
-            </div>
+            <div class="table-wrap"><table id="inTable"><thead><tr><th class="checkbox-cell"><input type="checkbox" id="inSelectAll"></th><th>序号</th><th>批次</th><th>物料编码</th><th>物料名称</th><th>规格</th><th>数量</th><th>单位</th><th>库存天数</th><th>类型</th></tr></thead><tbody></tbody></table></div>
             <div class="pagination" id="inPagination"></div>
         </div>
 
@@ -203,35 +161,35 @@
             <div class="toolbar">
                 <button class="btn" id="importOutBtn">📂 导入Excel</button>
                 <button class="btn" id="exportOutBtn">⬇️ 导出Excel</button>
-                <button class="btn btn-danger" id="batchDelOutBtn" style="display:none;">🗑️ 批量删除选中</button>
-                <span class="stock-badge" id="outStockSummary">📋 选择批次出库</span>
+                <button class="btn btn-danger" id="batchDelOutBtn" style="display:none">🗑️ 批量删除选中</button>
+                <span class="stock-badge" id="outStockSummary">📋 累计出库统计</span>
+            </div>
+            <div class="form-row">
+                <div class="form-group" style="position:relative"><label>物料名称</label><input id="outNameSearch" placeholder="搜索名称" autocomplete="off" style="width:110px"><div class="suggestions" id="outNameSug"></div></div>
+                <div class="form-group" style="position:relative"><label>规格</label><input id="outSpecSearch" placeholder="搜索规格" autocomplete="off" style="width:110px"><div class="suggestions" id="outSpecSug"></div></div>
+                <div class="form-group" style="position:relative"><label>科室</label><input id="outDept" placeholder="科室" autocomplete="off" style="width:90px"><div class="suggestions" id="deptSug"></div></div>
+                <div class="form-group" style="position:relative"><label>出库人</label><input id="outPerson" placeholder="出库人" autocomplete="off" style="width:90px"><div class="suggestions" id="personSug"></div></div>
+                <button class="btn btn-primary" id="outBtn">📤 出库</button>
+                <button class="btn" id="clearBatchListBtn">清空清单</button>
             </div>
             <div class="batch-out-list">
-                <div style="display:flex;gap:0.4rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:0.5rem;">
-                    <div class="form-group" style="position:relative;"><label>物料名称</label><input id="batchNameSearch" placeholder="搜索名称" autocomplete="off" style="width:110px;"><div class="suggestions" id="batchNameSug"></div></div>
-                    <div class="form-group" style="position:relative;"><label>规格</label><input id="batchSpecSearch" placeholder="搜索规格" autocomplete="off" style="width:110px;"><div class="suggestions" id="batchSpecSug"></div></div>
-                    <div class="form-group" style="position:relative;"><label>科室</label><input id="outDeptBatch" placeholder="科室" autocomplete="off" style="width:90px;"><div class="suggestions" id="deptSug"></div></div>
-                    <div class="form-group" style="position:relative;"><label>出库人</label><input id="outPersonBatch" placeholder="出库人" autocomplete="off" style="width:90px;"><div class="suggestions" id="personSug"></div></div>
-                    <button class="btn btn-primary" id="addToBatchListBtn">➕ 添加至清单</button>
-                    <button class="btn btn-warning" id="submitBatchOutBtn">📤 批量出库</button>
-                    <button class="btn" id="clearBatchListBtn">清空清单</button>
-                </div>
-                <h4 style="font-size:0.75rem;">📋 待出库清单 <span style="color:#64748b;font-size:0.65rem;">(先进先出，最早批次优先)</span></h4>
-                <div class="table-wrap" style="max-height:180px;margin-bottom:0.3rem;">
-                    <table id="batchOutListTable"><thead><tr><th>批次号</th><th>名称</th><th>规格</th><th>类型</th><th>可用库存</th><th>出库数量</th><th>单位</th><th>入库时间</th><th>操作</th></tr></thead><tbody></tbody></table>
-                </div>
+                <h4 style="font-size:0.75rem;margin-bottom:0.4rem">📋 出库清单 <span style="color:#64748b;font-size:0.65rem">(点击上方搜索建议添加，数量默认为1，可修改)</span></h4>
+                <div class="table-wrap" style="max-height:180px;margin-bottom:0.3rem"><table id="batchOutListTable"><thead><tr><th>批次号</th><th>名称</th><th>规格</th><th>类型</th><th>可用库存</th><th>出库数量</th><th>单位</th><th>入库时间</th><th>操作</th></tr></thead><tbody></tbody></table></div>
             </div>
-            <div class="table-wrap">
-                <table id="outTable"><thead><tr><th class="checkbox-cell"><input type="checkbox" id="outSelectAll"></th><th>物料名称</th><th>规格</th><th>类型</th><th>数量</th><th>单位</th><th>科室</th><th>出库人</th><th>时间</th></tr></thead><tbody></tbody></table>
-            </div>
+            <div class="table-wrap"><table id="outTable"><thead><tr><th class="checkbox-cell"><input type="checkbox" id="outSelectAll"></th><th>物料名称</th><th>规格</th><th>类型</th><th>数量</th><th>单位</th><th>科室</th><th>出库人</th><th>时间</th></tr></thead><tbody></tbody></table></div>
             <div class="pagination" id="outPagination"></div>
         </div>
     </div>
 
     <script>
         (() => {
-            const sb = supabase.createClient('https://ywwrjrytwhhcpiwtjowi.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3d3Jqcnl0d2hoY3Bpd3Rqb3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4NjI4MjksImV4cCI6MjA5OTQzODgyOX0.SeBVml0AN--V_kCG_hI-CofrNIAh1itiX3WEhQRDL80');
+            // ---------- Supabase 初始化 ----------
+            const sb = supabase.createClient(
+                'https://ywwrjrytwhhcpiwtjowi.supabase.co',
+                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3d3Jqcnl0d2hoY3Bpd3Rqb3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM4NjI4MjksImV4cCI6MjA5OTQzODgyOX0.SeBVml0AN--V_kCG_hI-CofrNIAh1itiX3WEhQRDL80'
+            );
 
+            // ---------- 全局状态 ----------
             let inData = [], outData = [];
             let inPage = 1, outPage = 1, inPageSize = 10, outPageSize = 10;
             let selectedInIds = new Set(), selectedOutIds = new Set();
@@ -239,12 +197,15 @@
             let charts = {};
             let currentHospital = '';
 
+            // ---------- 工具函数 ----------
             const fmt = d => { try { return new Date(d).toLocaleString('zh-CN'); } catch { return d; } };
             const fmtDateOnly = d => { try { const dt = new Date(d); return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`; } catch { return d; } };
             const daysSince = d => d ? Math.floor((Date.now() - new Date(d).getTime()) / 86400000) : 0;
             const getStockDays = r => { const elapsed = daysSince(r.time); return (r.stock_days != null ? (r.stock_days || 0) : 0) + elapsed; };
             const typePrefix = { '耗材': 'HP', '配件': 'PJ', '资材': 'ZC' };
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
+            // ---------- 编码生成 ----------
             async function generateCode(type) {
                 const prefix = typePrefix[type] || 'XX';
                 const { data } = await sb.from('in_records').select('code').ilike('code', `${prefix}-%`).eq('hospital', currentHospital).order('code', { ascending: false }).limit(1);
@@ -253,6 +214,7 @@
                 return `${prefix}-${String(max + 1).padStart(5, '0')}`;
             }
 
+            // ---------- 数据加载 ----------
             async function loadIn() {
                 if (!currentHospital) return;
                 const { data } = await sb.from('in_records').select('*').eq('hospital', currentHospital).order('time', { ascending: false });
@@ -276,24 +238,20 @@
                 document.getElementById('outStockSummary').textContent = `📋 累计出库: ${totalOut} | 记录: ${outData.length}`;
             }
 
+            // ---------- 表格渲染 ----------
             function renderInTable() {
                 const tbody = document.querySelector('#inTable tbody');
                 const start = (inPage - 1) * inPageSize, page = inData.slice(start, start + inPageSize);
                 document.getElementById('inSelectAll').checked = page.length > 0 && page.every(r => selectedInIds.has(r.id));
-                tbody.innerHTML = page.length ? page.map(r => {
-                    const global = inData.indexOf(r) + 1;
-                    return `<tr><td class="checkbox-cell"><input type="checkbox" class="in-row-check" data-id="${r.id}" ${selectedInIds.has(r.id) ? 'checked' : ''}></td>
-                    <td>${global}</td><td>${r.batch||''}</td><td>${r.code||''}</td><td>${r.name}</td><td>${r.spec||''}</td>
-                    <td>${r.qty}</td><td>${r.unit||''}</td><td>${getStockDays(r)}天</td><td>${r.type}</td></tr>`;
-                }).join('') : '<tr><td colspan="10" class="empty-state">📭 暂无入库记录</td></tr>';
+                tbody.innerHTML = page.length ? page.map(r => `<tr><td class="checkbox-cell"><input type="checkbox" class="in-row-check" data-id="${r.id}" ${selectedInIds.has(r.id)?'checked':''}></td>
+                    <td>${inData.indexOf(r)+1}</td><td>${r.batch||''}</td><td>${r.code||''}</td><td>${r.name}</td><td>${r.spec||''}</td>
+                    <td>${r.qty}</td><td>${r.unit||''}</td><td>${getStockDays(r)}天</td><td>${r.type}</td></tr>`).join('') : '<tr><td colspan="10" class="empty-state">📭 暂无入库记录</td></tr>';
                 const totalPages = Math.ceil(inData.length / inPageSize) || 1;
                 document.getElementById('inPagination').innerHTML = `
                     <span>第${inPage}页/共${totalPages}页 (${inData.length}条) | 已选${selectedInIds.size}项</span>
-                    <div style="display:flex;align-items:center;gap:0.3rem;">
+                    <div style="display:flex;align-items:center;gap:0.3rem">
                         <button class="page-btn" ${inPage<=1?'disabled':''} onclick="window._changeInPage(-1)">上一页</button>
-                        <select class="page-size-select" id="inPageSizeSelect">
-                            ${[10,20,30,40,50].map(v => `<option value="${v}" ${inPageSize===v?'selected':''}>${v}条/页</option>`).join('')}
-                        </select>
+                        <select class="page-size-select" id="inPageSizeSelect">${[10,20,30,40,50].map(v => `<option value="${v}" ${inPageSize===v?'selected':''}>${v}条/页</option>`).join('')}</select>
                         <button class="page-btn" ${inPage>=totalPages?'disabled':''} onclick="window._changeInPage(1)">下一页</button>
                     </div>`;
                 document.getElementById('inPageSizeSelect').onchange = e => { inPageSize = +e.target.value; inPage = 1; renderInTable(); };
@@ -311,11 +269,9 @@
                 const totalPages = Math.ceil(outData.length/outPageSize)||1;
                 document.getElementById('outPagination').innerHTML = `
                     <span>第${outPage}页/共${totalPages}页 (${outData.length}条) | 已选${selectedOutIds.size}项</span>
-                    <div style="display:flex;align-items:center;gap:0.3rem;">
+                    <div style="display:flex;align-items:center;gap:0.3rem">
                         <button class="page-btn" ${outPage<=1?'disabled':''} onclick="window._changeOutPage(-1)">上一页</button>
-                        <select class="page-size-select" id="outPageSizeSelect">
-                            ${[10,20,30,40,50].map(v => `<option value="${v}" ${outPageSize===v?'selected':''}>${v}条/页</option>`).join('')}
-                        </select>
+                        <select class="page-size-select" id="outPageSizeSelect">${[10,20,30,40,50].map(v => `<option value="${v}" ${outPageSize===v?'selected':''}>${v}条/页</option>`).join('')}</select>
                         <button class="page-btn" ${outPage>=totalPages?'disabled':''} onclick="window._changeOutPage(1)">下一页</button>
                     </div>`;
                 document.getElementById('outPageSizeSelect').onchange = e => { outPageSize = +e.target.value; outPage = 1; renderOutTable(); };
@@ -326,115 +282,121 @@
             function updateBatchDelInBtn() { const btn = document.getElementById('batchDelInBtn'); btn.style.display = selectedInIds.size ? 'inline-block' : 'none'; btn.textContent = `🗑️ 批量删除选中 (${selectedInIds.size})`; }
             function updateBatchDelOutBtn() { const btn = document.getElementById('batchDelOutBtn'); btn.style.display = selectedOutIds.size ? 'inline-block' : 'none'; btn.textContent = `🗑️ 批量删除选中 (${selectedOutIds.size})`; }
 
+            // ---------- 建议框定位 ----------
+            function positionSuggestion(sugDiv, inputElement) {
+                if (!sugDiv.classList.contains('show')) return;
+                const rect = inputElement.getBoundingClientRect();
+                const vh = window.innerHeight, vw = window.innerWidth;
+                const sugWidth = Math.min(vw * 0.9, 300);
+                let top = rect.bottom + 4, left = rect.left;
+                if (top + 250 > vh) top = rect.top - 254;
+                if (left + sugWidth > vw) left = vw - sugWidth - 10;
+                if (left < 10) left = 10;
+                sugDiv.style.top = top + 'px';
+                sugDiv.style.left = left + 'px';
+                sugDiv.style.width = sugWidth + 'px';
+            }
+
+            // ---------- 入库搜索 ----------
             function setupInSearch() {
                 const nameInput = document.getElementById('inName'), nameSug = document.getElementById('inNameSug');
                 const specInput = document.getElementById('inSpec'), specSug = document.getElementById('inSpecSug');
-                function show(input, sug, filterFn) {
+                const getUniqueItems = () => [...new Map(inData.map(r => [r.name+'||'+r.spec, {name:r.name, spec:r.spec||'', unit:r.unit||'', type:r.type}])).values()];
+                function show(input, sug) {
                     const val = input.value.trim().toLowerCase();
                     if (!val) { sug.classList.remove('show'); return; }
-                    const matches = filterFn(val).slice(0, 8);
-                    if (!matches.length) { sug.classList.remove('show'); return; }
-                    sug.innerHTML = matches.map(r => `<div class="sug-item" data-name="${r.name}" data-spec="${r.spec||''}" data-unit="${r.unit||''}" data-type="${r.type}">
-                        <strong>${r.name}</strong><div class="info">${r.spec||''} | ${r.unit||''} | ${r.type}</div></div>`).join('');
-                    sug.classList.add('show');
+                    const items = getUniqueItems().filter(r => r.name.toLowerCase().includes(val) || r.spec.toLowerCase().includes(val)).slice(0,8);
+                    if (!items.length) { sug.classList.remove('show'); return; }
+                    sug.innerHTML = items.map(r => `<div class="sug-item" data-name="${r.name}" data-spec="${r.spec}" data-unit="${r.unit}" data-type="${r.type}"><strong>${r.name}</strong><div class="info">${r.spec} | ${r.unit} | ${r.type}</div></div>`).join('');
+                    sug.classList.add('show'); positionSuggestion(sug, input);
                 }
-                nameInput.addEventListener('input', () => show(nameInput, nameSug, v => [...new Map(inData.map(r => [r.name+'||'+r.spec, {name:r.name,spec:r.spec||'',unit:r.unit||'',type:r.type}])).values()].filter(r => r.name.toLowerCase().includes(v)||r.spec.toLowerCase().includes(v))));
-                specInput.addEventListener('input', () => show(specInput, specSug, v => [...new Map(inData.map(r => [r.name+'||'+r.spec, {name:r.name,spec:r.spec||'',unit:r.unit||'',type:r.type}])).values()].filter(r => r.spec.toLowerCase().includes(v)||r.name.toLowerCase().includes(v))));
-                function fill(el) { document.getElementById('inName').value = el.dataset.name; document.getElementById('inSpec').value = el.dataset.spec; document.getElementById('inUnit').value = el.dataset.unit; document.getElementById('inType').value = el.dataset.type; }
-                nameSug.addEventListener('click', e => { const el = e.target.closest('.sug-item'); if(el){fill(el);nameSug.classList.remove('show');}});
-                specSug.addEventListener('click', e => { const el = e.target.closest('.sug-item'); if(el){fill(el);specSug.classList.remove('show');}});
+                nameInput.addEventListener('input', () => show(nameInput, nameSug));
+                specInput.addEventListener('input', () => show(specInput, specSug));
+                // 获得焦点时，如果已有内容则显示建议
+                nameInput.addEventListener('focus', () => { if (nameInput.value.trim()) show(nameInput, nameSug); });
+                specInput.addEventListener('focus', () => { if (specInput.value.trim()) show(specInput, specSug); });
+                function fill(el) { document.getElementById('inName').value=el.dataset.name; document.getElementById('inSpec').value=el.dataset.spec; document.getElementById('inUnit').value=el.dataset.unit; document.getElementById('inType').value=el.dataset.type; }
+                [nameSug, specSug].forEach(sug => {
+                    sug.addEventListener('touchend', e => { e.preventDefault(); const el=e.target.closest('.sug-item'); if(el){fill(el); sug.classList.remove('show');}});
+                    sug.addEventListener('click', e => { const el=e.target.closest('.sug-item'); if(el && !isIOS){fill(el); sug.classList.remove('show');}});
+                });
                 document.addEventListener('click', e => { if(!e.target.closest('#inName')&&!e.target.closest('#inNameSug'))nameSug.classList.remove('show'); if(!e.target.closest('#inSpec')&&!e.target.closest('#inSpecSug'))specSug.classList.remove('show');});
             }
 
-            function setupDeptPersonSearch() {
-                const deptInput = document.getElementById('outDeptBatch'), deptSug = document.getElementById('deptSug');
-                const personInput = document.getElementById('outPersonBatch'), personSug = document.getElementById('personSug');
-                function showHistory(input, sugDiv, field) {
-                    const val = input.value.trim().toLowerCase();
-                    if (!val) { sugDiv.classList.remove('show'); return; }
-                    const historyMap = new Map();
-                    outData.forEach(r => {
-                        const v = (r[field] || '').trim();
-                        if (v && v.toLowerCase().includes(val)) historyMap.set(v, (historyMap.get(v) || 0) + 1);
-                    });
-                    const sorted = [...historyMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
-                    if (!sorted.length) { sugDiv.classList.remove('show'); return; }
-                    sugDiv.innerHTML = sorted.map(([text]) => `<div class="sug-item" data-value="${text}"><strong>${text}</strong></div>`).join('');
-                    sugDiv.classList.add('show');
-                }
-                deptInput.addEventListener('input', () => showHistory(deptInput, deptSug, 'dept'));
-                personInput.addEventListener('input', () => showHistory(personInput, personSug, 'person'));
-                deptSug.addEventListener('click', e => { const el = e.target.closest('.sug-item'); if (el) { deptInput.value = el.dataset.value; deptSug.classList.remove('show'); } });
-                personSug.addEventListener('click', e => { const el = e.target.closest('.sug-item'); if (el) { personInput.value = el.dataset.value; personSug.classList.remove('show'); } });
-                document.addEventListener('click', e => {
-                    if (!e.target.closest('#outDeptBatch') && !e.target.closest('#deptSug')) deptSug.classList.remove('show');
-                    if (!e.target.closest('#outPersonBatch') && !e.target.closest('#personSug')) personSug.classList.remove('show');
-                });
-            }
-
-            function setupBatchSearch() {
-                const nameInput = document.getElementById('batchNameSearch'), nameSug = document.getElementById('batchNameSug');
-                const specInput = document.getElementById('batchSpecSearch'), specSug = document.getElementById('batchSpecSug');
+            // ---------- 出库搜索（先进先出 + 自动带出）----------
+            function setupOutSearch() {
+                const nameInput = document.getElementById('outNameSearch'), nameSug = document.getElementById('outNameSug');
+                const specInput = document.getElementById('outSpecSearch'), specSug = document.getElementById('outSpecSug');
                 function filterAvailable(nv, sv) {
                     return inData.filter(r => r.remaining > 0 && (!nv || r.name.toLowerCase().includes(nv)) && (!sv || (r.spec||'').toLowerCase().includes(sv)))
-                        .sort((a, b) => new Date(a.time) - new Date(b.time));
+                        .sort((a, b) => new Date(a.time) - new Date(b.time)); // 先进先出
                 }
                 function showSuggestions() {
                     const nv = nameInput.value.trim().toLowerCase(), sv = specInput.value.trim().toLowerCase();
                     if (!nv && !sv) { nameSug.classList.remove('show'); specSug.classList.remove('show'); return; }
                     const results = filterAvailable(nv, sv).slice(0, 8);
+                    if (!results.length) { nameSug.classList.remove('show'); specSug.classList.remove('show'); return; }
                     const html = results.map(r => {
                         const stockDays = getStockDays(r);
-                        return `<div class="sug-item" data-id="${r.id}" data-name="${r.name}" data-spec="${r.spec||''}" data-unit="${r.unit||''}" data-remaining="${r.remaining}" data-batch="${r.batch||''}" data-time="${fmt(r.time)}" data-type="${r.type}">
-                            <strong>${r.name}</strong>
-                            <div class="info">${r.spec||''} | 剩${r.remaining}${r.unit||''} | ${stockDays}天 | 批次:${r.batch} | ${r.type}</div>
-                        </div>`;
+                        return `<div class="sug-item" data-id="${r.id}" data-name="${r.name}" data-spec="${r.spec||''}" data-unit="${r.unit||''}" data-remaining="${r.remaining}" data-batch="${r.batch||''}" data-type="${r.type}" data-time="${fmt(r.time)}"><strong>${r.name}</strong><div class="info">${r.spec||''} | 剩${r.remaining}${r.unit||''} | ${stockDays}天 | 批次:${r.batch}</div></div>`;
                     }).join('');
                     nameSug.innerHTML = html; specSug.innerHTML = html;
-                    if (results.length) { nameSug.classList.add('show'); specSug.classList.add('show'); }
-                    else { nameSug.classList.remove('show'); specSug.classList.remove('show'); }
+                    nameSug.classList.add('show'); specSug.classList.add('show');
+                    positionSuggestion(nameSug, nameInput); positionSuggestion(specSug, specInput);
                 }
                 nameInput.addEventListener('input', showSuggestions);
                 specInput.addEventListener('input', showSuggestions);
-                function addItem(el) {
+                // 获得焦点时自动带出建议（若已有文字）
+                nameInput.addEventListener('focus', () => { if (nameInput.value.trim()) showSuggestions(); });
+                specInput.addEventListener('focus', () => { if (specInput.value.trim()) showSuggestions(); });
+
+                function addToBatch(el) {
                     const id = el.dataset.id;
                     if (batchOutItems.some(i => i.id === id)) { alert('该批次已在清单中'); return; }
-                    batchOutItems.push({
-                        id, name: el.dataset.name, spec: el.dataset.spec, unit: el.dataset.unit,
-                        remaining: parseInt(el.dataset.remaining), batch: el.dataset.batch,
-                        time: el.dataset.time, type: el.dataset.type, qty: 1
-                    });
+                    batchOutItems.push({ id, name: el.dataset.name, spec: el.dataset.spec, unit: el.dataset.unit, remaining: parseInt(el.dataset.remaining), batch: el.dataset.batch, time: el.dataset.time, type: el.dataset.type, qty: 1 });
                     renderBatchOutList();
                     nameInput.value = ''; specInput.value = '';
                     nameSug.classList.remove('show'); specSug.classList.remove('show');
                 }
-                nameSug.addEventListener('click', e => { const el = e.target.closest('.sug-item'); if(el) addItem(el); });
-                specSug.addEventListener('click', e => { const el = e.target.closest('.sug-item'); if(el) addItem(el); });
-                document.addEventListener('click', e => {
-                    if (!e.target.closest('#batchNameSearch') && !e.target.closest('#batchNameSug')) nameSug.classList.remove('show');
-                    if (!e.target.closest('#batchSpecSearch') && !e.target.closest('#batchSpecSug')) specSug.classList.remove('show');
+                [nameSug, specSug].forEach(sug => {
+                    sug.addEventListener('touchend', e => { e.preventDefault(); const el=e.target.closest('.sug-item'); if(el) addToBatch(el); });
+                    sug.addEventListener('click', e => { const el=e.target.closest('.sug-item'); if(el && !isIOS) addToBatch(el); });
                 });
-                document.getElementById('addToBatchListBtn').onclick = () => {
-                    const nv = nameInput.value.trim().toLowerCase(), sv = specInput.value.trim().toLowerCase();
-                    const results = filterAvailable(nv, sv);
-                    if (!results.length) return alert('无可用批次');
-                    const batch = results[0];
-                    if (batchOutItems.some(i => i.id === batch.id)) return alert('已在清单中');
-                    batchOutItems.push({ id: batch.id, name: batch.name, spec: batch.spec||'', unit: batch.unit||'', remaining: batch.remaining, batch: batch.batch, time: fmt(batch.time), type: batch.type, qty: 1 });
-                    renderBatchOutList();
-                    nameInput.value = ''; specInput.value = '';
-                };
+                document.addEventListener('click', e => { if(!e.target.closest('#outNameSearch')&&!e.target.closest('#outNameSug'))nameSug.classList.remove('show'); if(!e.target.closest('#outSpecSearch')&&!e.target.closest('#outSpecSug'))specSug.classList.remove('show');});
             }
 
+            // ---------- 科室/出库人历史建议 ----------
+            function setupDeptPersonSearch() {
+                const deptInput = document.getElementById('outDept'), deptSug = document.getElementById('deptSug');
+                const personInput = document.getElementById('outPerson'), personSug = document.getElementById('personSug');
+                function setupHistory(input, sug, field) {
+                    input.addEventListener('input', () => {
+                        const val = input.value.trim().toLowerCase();
+                        if (!val) { sug.classList.remove('show'); return; }
+                        const map = new Map(); outData.forEach(r => { const v=(r[field]||'').trim(); if(v && v.toLowerCase().includes(val)) map.set(v,(map.get(v)||0)+1); });
+                        const sorted = [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,8);
+                        if(!sorted.length){sug.classList.remove('show');return;}
+                        sug.innerHTML = sorted.map(([text]) => `<div class="sug-item" data-value="${text}"><strong>${text}</strong></div>`).join('');
+                        sug.classList.add('show'); positionSuggestion(sug, input);
+                    });
+                    input.addEventListener('focus', () => { if (input.value.trim()) input.dispatchEvent(new Event('input')); });
+                    sug.addEventListener('touchend', e => { e.preventDefault(); const el=e.target.closest('.sug-item'); if(el){input.value=el.dataset.value; sug.classList.remove('show');}});
+                    sug.addEventListener('click', e => { const el=e.target.closest('.sug-item'); if(el && !isIOS){input.value=el.dataset.value; sug.classList.remove('show');}});
+                }
+                setupHistory(deptInput, deptSug, 'dept');
+                setupHistory(personInput, personSug, 'person');
+                document.addEventListener('click', e => { if(!e.target.closest('#outDept')&&!e.target.closest('#deptSug'))deptSug.classList.remove('show'); if(!e.target.closest('#outPerson')&&!e.target.closest('#personSug'))personSug.classList.remove('show');});
+            }
+
+            // ---------- 出库清单 ----------
             function renderBatchOutList() {
                 const tbody = document.querySelector('#batchOutListTable tbody');
                 tbody.innerHTML = batchOutItems.length ? batchOutItems.map((item, idx) => `<tr>
-                    <td>${item.batch}</td><td>${item.name}</td><td>${item.spec}</td><td>${item.type || '-'}</td>
-                    <td>${item.remaining}</td>
-                    <td><input type="number" value="${item.qty}" min="1" max="${item.remaining}" class="batch-qty-input" data-index="${idx}" style="width:70px;"></td>
-                    <td>${item.unit}</td><td>${item.time}</td>
-                    <td><button class="btn btn-danger" style="padding:0.1rem 0.5rem;" onclick="window._removeBatchItem(${idx})">✕</button></td>
-                </tr>`).join('') : '<tr><td colspan="9" class="empty-state">📭 清单为空</td></tr>';
+                    <td>${item.batch}</td><td>${item.name}</td><td>${item.spec}</td><td>${item.type || '-'}</td><td>${item.remaining}</td>
+                    <td><input type="number" value="${item.qty}" min="1" max="${item.remaining}" class="batch-qty-input" data-index="${idx}" style="width:70px"></td>
+                    <td>${item.unit}</td><td>${item.time || ''}</td>
+                    <td><button class="btn btn-danger" style="padding:0.1rem 0.5rem" onclick="window._removeBatchItem(${idx})">✕</button></td>
+                </tr>`).join('') : '<tr><td colspan="9" class="empty-state">📭 清单为空，请在搜索框输入后点击建议项添加</td></tr>';
             }
             window._removeBatchItem = idx => { batchOutItems.splice(idx, 1); renderBatchOutList(); };
             document.querySelector('#batchOutListTable tbody').addEventListener('input', e => {
@@ -445,11 +407,14 @@
                     batchOutItems[idx].qty = val; e.target.value = val;
                 }
             });
+
             document.getElementById('clearBatchListBtn').onclick = () => { batchOutItems = []; renderBatchOutList(); };
-            document.getElementById('submitBatchOutBtn').onclick = async () => {
-                if (!batchOutItems.length) return alert('清单为空');
-                const dept = document.getElementById('outDeptBatch').value.trim();
-                const person = document.getElementById('outPersonBatch').value.trim();
+
+            // ---------- 出库按钮（统一提交清单）----------
+            document.getElementById('outBtn').onclick = async () => {
+                if (!batchOutItems.length) return alert('请先添加批次到清单（在搜索框中输入后点击建议项添加）');
+                const dept = document.getElementById('outDept').value.trim();
+                const person = document.getElementById('outPerson').value.trim();
                 if (!dept || !person) return alert('请填写科室和出库人');
                 for (const item of batchOutItems) {
                     const { data: cur } = await sb.from('in_records').select('remaining').eq('id', item.id).single();
@@ -458,42 +423,36 @@
                 for (const item of batchOutItems) {
                     const { data: cur } = await sb.from('in_records').select('remaining,type').eq('id', item.id).single();
                     await sb.from('in_records').update({ remaining: cur.remaining - item.qty }).eq('id', item.id);
-                    await sb.from('out_records').insert({
-                        id: crypto.randomUUID(), name: item.name, spec: item.spec, type: cur.type || item.type,
-                        qty: item.qty, unit: item.unit, dept, person, time: new Date().toISOString(),
-                        source_batch_id: item.id, hospital: currentHospital
-                    });
+                    await sb.from('out_records').insert({ id: crypto.randomUUID(), name: item.name, spec: item.spec, type: cur.type || item.type, qty: item.qty, unit: item.unit, dept, person, time: new Date().toISOString(), source_batch_id: item.id, hospital: currentHospital });
                 }
-                alert(`批量出库成功，共${batchOutItems.length}项`);
+                alert(`出库成功，共${batchOutItems.length}项`);
                 batchOutItems = []; renderBatchOutList();
-                document.getElementById('outDeptBatch').value = document.getElementById('outPersonBatch').value = '';
+                document.getElementById('outDept').value = ''; document.getElementById('outPerson').value = '';
                 await loadIn(); await loadOut(); await loadDashboard();
             };
 
+            // ---------- 入库提交 ----------
             document.getElementById('addInBtn').onclick = async () => {
                 const name = document.getElementById('inName').value.trim(), spec = document.getElementById('inSpec').value.trim();
                 const qty = +document.getElementById('inQty').value, unit = document.getElementById('inUnit').value.trim(), type = document.getElementById('inType').value;
-                if (!name || !spec || !qty || qty < 1) return alert('请填写完整');
+                if (!name || !spec || !qty || qty < 1) return alert('请填写完整信息');
                 const batch = 'wl' + Date.now(), code = await generateCode(type);
-                await sb.from('in_records').insert({
-                    id: crypto.randomUUID(), batch, code, name, spec, qty, unit,
-                    time: new Date().toISOString(), type, remaining: qty, stock_days: 0,
-                    hospital: currentHospital
-                });
+                await sb.from('in_records').insert({ id: crypto.randomUUID(), batch, code, name, spec, qty, unit, time: new Date().toISOString(), type, remaining: qty, stock_days: 0, hospital: currentHospital });
                 ['inName','inSpec','inUnit'].forEach(id => document.getElementById(id).value = '');
                 document.getElementById('inQty').value = '1';
                 await loadIn(); await loadOut(); await loadDashboard();
             };
 
+            // ---------- 批量删除 ----------
             document.getElementById('batchDelInBtn').onclick = async () => {
                 if (!selectedInIds.size) return;
-                if (!confirm(`删除${selectedInIds.size}条入库记录？`)) return;
+                if (!confirm(`确定删除${selectedInIds.size}条入库记录？`)) return;
                 await sb.from('in_records').delete().in('id', [...selectedInIds]);
                 selectedInIds.clear(); await loadIn(); await loadOut(); await loadDashboard();
             };
             document.getElementById('batchDelOutBtn').onclick = async () => {
                 if (!selectedOutIds.size) return;
-                if (!confirm(`删除${selectedOutIds.size}条出库记录？将恢复库存。`)) return;
+                if (!confirm(`确定删除${selectedOutIds.size}条出库记录？将恢复库存。`)) return;
                 const ids = [...selectedOutIds];
                 const { data: records } = await sb.from('out_records').select('*').in('id', ids);
                 if (records) for (const rec of records) {
@@ -506,12 +465,11 @@
                 selectedOutIds.clear(); await loadOut(); await loadIn(); await loadDashboard();
             };
 
+            // 复选框事件
             document.querySelector('#inTable tbody').addEventListener('change', e => {
                 if (e.target.classList.contains('in-row-check')) {
                     const id = e.target.dataset.id; e.target.checked ? selectedInIds.add(id) : selectedInIds.delete(id);
                     updateBatchDelInBtn();
-                    const page = inData.slice((inPage-1)*inPageSize, inPage*inPageSize);
-                    document.getElementById('inSelectAll').checked = page.length>0 && page.every(r => selectedInIds.has(r.id));
                 }
             });
             document.getElementById('inSelectAll').onchange = e => {
@@ -531,6 +489,7 @@
                 renderOutTable();
             };
 
+            // ---------- 看板 ----------
             async function loadDashboard() {
                 const { data: inR } = await sb.from('in_records').select('*').eq('hospital', currentHospital);
                 const { data: outR } = await sb.from('out_records').select('*').eq('hospital', currentHospital);
@@ -550,9 +509,7 @@
                 let filtered = lowStockData;
                 if(fn) filtered = filtered.filter(r => r.name.toLowerCase().includes(fn.toLowerCase()));
                 if(fs) filtered = filtered.filter(r => (r.spec||'').toLowerCase().includes(fs.toLowerCase()));
-                const tbody = document.querySelector('#lowStockTable tbody');
-                tbody.innerHTML = filtered.length ? filtered.map(r => `<tr class="clickable-row" data-name="${r.name}" data-spec="${r.spec||''}">
-                    <td>${r.name}</td><td>${r.spec||''}</td><td><span class="badge-warn">${r.remaining}</span></td><td>${r.unit||''}</td><td>${r.type}</td><td>${getStockDays(r)}天</td><td>${r.batch}</td></tr>`).join('') : '<tr><td colspan="7">✅ 无预警</td></tr>';
+                document.querySelector('#lowStockTable tbody').innerHTML = filtered.length ? filtered.map(r => `<tr class="clickable-row" data-name="${r.name}" data-spec="${r.spec||''}"><td>${r.name}</td><td>${r.spec||''}</td><td><span class="badge-warn">${r.remaining}</span></td><td>${r.unit||''}</td><td>${r.type}</td><td>${getStockDays(r)}天</td><td>${r.batch}</td></tr>`).join('') : '<tr><td colspan="7">✅ 无预警</td></tr>';
             }
 
             function renderRecent(inR, outR) {
@@ -569,12 +526,31 @@
                 inR.forEach(r=>{ const k=fmtDateOnly(r.time); if(inByDay[k]!==undefined) inByDay[k]+=(r.qty||0); });
                 outR.forEach(r=>{ const k=fmtDateOnly(r.time); if(outByDay[k]!==undefined) outByDay[k]+=(r.qty||0); });
                 const trendCtx = document.getElementById('trendChart');
-                if(trendCtx) charts.trend = new Chart(trendCtx,{type:'line',data:{labels,datasets:[{label:'入库',data:labels.map(l=>inByDay[l]),borderColor:'#15803d',fill:true,tension:0.3},{label:'出库',data:labels.map(l=>outByDay[l]),borderColor:'#b91c1c',fill:true,tension:0.3}]}});
+                if(trendCtx) {
+                    charts.trend = new Chart(trendCtx,{
+                        type:'line',
+                        data:{labels,datasets:[{label:'入库',data:labels.map(l=>inByDay[l]),borderColor:'#15803d'},{label:'出库',data:labels.map(l=>outByDay[l]),borderColor:'#b91c1c'}]},
+                        options:{ responsive:true, maintainAspectRatio:false }
+                    });
+                }
                 const typeMap={}; inR.forEach(r=>{ const t=r.type||'其他'; typeMap[t]=(typeMap[t]||0)+(r.remaining||0); });
                 const pieCtx = document.getElementById('pieChart');
-                if(pieCtx && Object.keys(typeMap).length) charts.pie = new Chart(pieCtx,{type:'doughnut',data:{labels:Object.keys(typeMap),datasets:[{data:Object.values(typeMap)}]}});
+                if(pieCtx && Object.keys(typeMap).length) {
+                    charts.pie = new Chart(pieCtx,{
+                        type:'doughnut',
+                        data:{labels:Object.keys(typeMap),datasets:[{data:Object.values(typeMap)}]},
+                        options:{
+                            responsive:true,
+                            maintainAspectRatio:false,
+                            plugins:{
+                                legend:{ position:'bottom', labels:{ boxWidth:12, padding:8, font:{size:11} } }
+                            }
+                        }
+                    });
+                }
             }
 
+            // 看板卡片点击弹窗（保留原功能）
             document.getElementById('dashboardCards').onclick = async e => {
                 const card=e.target.closest('.stat-card'); if(!card) return;
                 const type=card.dataset.type; let title,cols,rows=[];
@@ -603,7 +579,8 @@
             document.getElementById('lowSpecSearch').oninput = ()=> renderLowStock(document.getElementById('lowNameSearch').value, document.getElementById('lowSpecSearch').value);
             document.getElementById('clearLowFilter').onclick = ()=>{ document.getElementById('lowNameSearch').value=''; document.getElementById('lowSpecSearch').value=''; renderLowStock(); };
 
-            document.getElementById('importInBtn').onclick = ()=>{
+            // ---------- 导入导出 ----------
+            document.getElementById('importInBtn').onclick = () => {
                 const input=document.createElement('input'); input.type='file'; input.accept='.xlsx,.xls,.csv';
                 input.onchange = async e => {
                     const file=e.target.files[0]; if(!file) return;
@@ -635,13 +612,13 @@
                 };
                 input.click();
             };
-            document.getElementById('exportInBtn').onclick = ()=>{
+            document.getElementById('exportInBtn').onclick = () => {
                 if(!inData.length) return alert('无数据');
                 const data=[['序号','批次','物料编码','物料名称','规格','数量','单位','库存天数','类型']];
                 inData.forEach((r,idx)=>data.push([idx+1,r.batch,r.code||'',r.name,r.spec||'',r.qty,r.unit||'',getStockDays(r)+'天',r.type]));
                 const ws=XLSX.utils.aoa_to_sheet(data), wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'入库记录'); XLSX.writeFile(wb,'入库记录.xlsx');
             };
-            document.getElementById('importOutBtn').onclick = ()=>{
+            document.getElementById('importOutBtn').onclick = () => {
                 const input=document.createElement('input'); input.type='file'; input.accept='.xlsx,.xls,.csv';
                 input.onchange = async e => {
                     const file=e.target.files[0]; if(!file) return;
@@ -669,105 +646,62 @@
                 };
                 input.click();
             };
-            document.getElementById('exportOutBtn').onclick = ()=>{
+            document.getElementById('exportOutBtn').onclick = () => {
                 if(!outData.length) return alert('无数据');
                 const data=[['物料名称','规格','类型','数量','单位','科室','出库人','时间']];
                 outData.forEach(r=>data.push([r.name,r.spec||'',r.type||'-',r.qty,r.unit||'',r.dept||'',r.person||'',fmt(r.time)]));
                 const ws=XLSX.utils.aoa_to_sheet(data), wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'出库记录'); XLSX.writeFile(wb,'出库记录.xlsx');
             };
 
+            // ---------- 标签切换 ----------
             function switchTab(tab) {
-                // 移除所有active状态
                 document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
                 document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-                
-                // 设置当前tab为active
-                const tabContent = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
-                const tabBtn = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Btn');
-                
-                if (tabContent) tabContent.classList.add('active');
-                if (tabBtn) tabBtn.classList.add('active');
-                
-                // 保存当前tab状态到localStorage
+                document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+                document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Btn').classList.add('active');
                 localStorage.setItem('activeTab', tab);
-                
-                // 根据tab类型加载相应数据
-                if (tab === 'dashboard') {
-                    loadDashboard();
-                } else if (tab === 'in') {
-                    loadIn();
-                } else if (tab === 'out') {
-                    loadOut();
-                }
+                if (tab === 'dashboard') loadDashboard();
+                else if (tab === 'in') loadIn();
+                else if (tab === 'out') loadOut();
             }
-            
             document.getElementById('tabDashboardBtn').onclick = () => switchTab('dashboard');
             document.getElementById('tabInBtn').onclick = () => switchTab('in');
             document.getElementById('tabOutBtn').onclick = () => switchTab('out');
 
-            const loginOverlay = document.getElementById('loginOverlay');
-            const mainApp = document.getElementById('mainApp');
-            const loginBtn = document.getElementById('loginBtn');
-            const loginError = document.getElementById('loginError');
-            const appTitle = document.getElementById('appTitle');
-
+            // ---------- 登录 ----------
             function checkLogin() {
                 const hospital = localStorage.getItem('hospital');
                 if (hospital) {
                     currentHospital = hospital;
-                    loginOverlay.style.display = 'none';
-                    mainApp.style.display = 'flex';
-                    appTitle.textContent = `📦 ${hospital}耗材配件出入库管理系统`;
-                    
-                    // 恢复上次的标签页状态
+                    document.getElementById('loginOverlay').style.display = 'none';
+                    document.getElementById('mainApp').style.display = 'flex';
+                    document.getElementById('appTitle').textContent = `📦 ${hospital}耗材配件出入库管理系统`;
                     const savedTab = localStorage.getItem('activeTab') || 'dashboard';
-                    
-                    // 根据保存的tab加载相应数据
-                    if (savedTab === 'dashboard') {
-                        loadDashboard();
-                    } else if (savedTab === 'in') {
-                        loadIn();
-                    } else if (savedTab === 'out') {
-                        loadOut();
-                    }
-                    
-                    // 使用switchTab来设置正确的标签页状态
                     switchTab(savedTab);
-                    
-                    // 初始化搜索功能
                     setupInSearch();
-                    setupBatchSearch();
+                    setupOutSearch();
                     setupDeptPersonSearch();
+                } else {
+                    document.getElementById('loginOverlay').style.display = 'flex';
+                    document.getElementById('mainApp').style.display = 'none';
                 }
             }
 
-            loginBtn.addEventListener('click', () => {
+            document.getElementById('loginBtn').onclick = () => {
                 const hospital = document.getElementById('hospitalSelect').value;
                 const password = document.getElementById('loginPassword').value;
                 if (!hospital || password !== '123456') {
-                    loginError.style.display = 'block';
+                    document.getElementById('loginError').style.display = 'block';
                     return;
                 }
-                loginError.style.display = 'none';
+                document.getElementById('loginError').style.display = 'none';
                 localStorage.setItem('hospital', hospital);
-                // 默认激活dashboard标签页
                 localStorage.setItem('activeTab', 'dashboard');
                 checkLogin();
-            });
+            };
+            document.getElementById('logoutBtn').onclick = () => { localStorage.removeItem('hospital'); location.reload(); };
 
-            document.getElementById('logoutBtn').addEventListener('click', () => {
-                localStorage.removeItem('hospital');
-                // 保留activeTab，下次登录时仍然可以恢复
-                // localStorage.removeItem('activeTab'); // 如果想完全重置，取消注释这行
-                location.reload();
-            });
-
-            if (localStorage.getItem('hospital')) {
-                checkLogin();
-            } else {
-                loginOverlay.style.display = 'flex';
-                mainApp.style.display = 'none';
-            }
+            checkLogin();
         })();
     </script>
 </body>
