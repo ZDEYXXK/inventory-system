@@ -105,48 +105,13 @@
             <button class="btn-logout" id="logoutBtn">🚪 登出</button>
         </div>
         <div class="tabs">
-            <button class="tab-btn active" id="tabDashboardBtn">📊 看板总览</button>
+            <button class="tab-btn active" id="tabOutBtn">📤 出库管理</button>
+            <button class="tab-btn" id="tabDashboardBtn">📊 看板总览</button>
             <button class="tab-btn" id="tabInBtn">📥 入库管理</button>
-            <button class="tab-btn" id="tabOutBtn">📤 出库管理</button>
         </div>
 
-        <div id="tabDashboard" class="tab-content active">
-            <div class="dashboard-grid" id="dashboardCards"></div>
-            <div class="charts-row">
-                <div class="chart-box"><h4>📈 近30天出入库趋势</h4><div class="chart-container"><canvas id="trendChart"></canvas></div></div>
-                <div class="chart-box"><h4>🍩 库存类型占比</h4><div class="chart-container"><canvas id="pieChart"></canvas></div></div>
-            </div>
-            <div class="low-stock-section">
-                <h4>⚠️ 低库存预警 (剩余 &lt; 2)</h4>
-                <div style="display:flex;gap:0.4rem;margin-bottom:0.3rem"><input id="lowNameSearch" placeholder="物料名称过滤" style="width:140px"><input id="lowSpecSearch" placeholder="规格过滤" style="width:140px"><button class="btn" id="clearLowFilter">清除</button></div>
-                <div class="table-wrap" style="max-height:140px"><table id="lowStockTable"><thead><tr><th>物料名称</th><th>规格</th><th>剩余</th><th>单位</th><th>类型</th><th>库存天数</th><th>批次号</th></tr></thead><tbody></tbody></table></div>
-            </div>
-            <div class="recent-section">
-                <h4>🕐 最近出入库记录</h4>
-                <div class="table-wrap"><table id="recentTable"><thead><tr><th>时间</th><th>类型</th><th>物料名称</th><th>规格</th><th>数量</th><th>详情</th></tr></thead><tbody></tbody></table></div>
-            </div>
-        </div>
-
-        <div id="tabIn" class="tab-content">
-            <div class="toolbar">
-                <button class="btn" id="importInBtn">📂 导入Excel</button>
-                <button class="btn" id="exportInBtn">⬇️ 导出Excel</button>
-                <button class="btn btn-danger" id="batchDelInBtn" style="display:none">🗑️ 批量删除选中</button>
-                <span class="stock-badge" id="inStockSummary">📊 暂无数据</span>
-            </div>
-            <div class="form-row">
-                <div class="form-group" style="position:relative"><label>物料名称</label><input id="inName" placeholder="搜索名称" autocomplete="off"><div class="suggestions" id="inNameSug"></div></div>
-                <div class="form-group" style="position:relative"><label>规格</label><input id="inSpec" placeholder="搜索规格" autocomplete="off"><div class="suggestions" id="inSpecSug"></div></div>
-                <div class="form-group"><label>数量</label><input type="number" id="inQty" value="1" min="1"></div>
-                <div class="form-group"><label>单位</label><input id="inUnit" placeholder="个/台"></div>
-                <div class="form-group"><label>类型</label><select id="inType"><option>耗材</option><option>配件</option><option>资材</option></select></div>
-                <button class="btn btn-primary" id="addInBtn">➕ 入库</button>
-            </div>
-            <div class="table-wrap"><table id="inTable"><thead><tr><th class="checkbox-cell"><input type="checkbox" id="inSelectAll"></th><th>序号</th><th>批次</th><th>物料编码</th><th>物料名称</th><th>规格</th><th>数量</th><th>单位</th><th>库存天数</th><th>类型</th></tr></thead><tbody></tbody></table></div>
-            <div class="pagination" id="inPagination"></div>
-        </div>
-
-        <div id="tabOut" class="tab-content">
+        <!-- 出库管理 -->
+        <div id="tabOut" class="tab-content active">
             <div class="toolbar">
                 <button class="btn" id="importOutBtn">📂 导入Excel</button>
                 <button class="btn" id="exportOutBtn">⬇️ 导出Excel</button>
@@ -167,6 +132,44 @@
             </div>
             <div class="table-wrap"><table id="outTable"><thead><tr><th class="checkbox-cell"><input type="checkbox" id="outSelectAll"></th><th>物料名称</th><th>规格</th><th>类型</th><th>数量</th><th>单位</th><th>科室</th><th>出库人</th><th>时间</th></tr></thead><tbody></tbody></table></div>
             <div class="pagination" id="outPagination"></div>
+        </div>
+
+        <!-- 看板总览 -->
+        <div id="tabDashboard" class="tab-content">
+            <div class="dashboard-grid" id="dashboardCards"></div>
+            <div class="charts-row">
+                <div class="chart-box"><h4>📈 近30天出入库趋势</h4><div class="chart-container"><canvas id="trendChart"></canvas></div></div>
+                <div class="chart-box"><h4>🍩 库存类型占比</h4><div class="chart-container"><canvas id="pieChart"></canvas></div></div>
+            </div>
+            <div class="low-stock-section">
+                <h4>⚠️ 低库存预警 (剩余 &lt; 2)</h4>
+                <div style="display:flex;gap:0.4rem;margin-bottom:0.3rem"><input id="lowNameSearch" placeholder="物料名称过滤" style="width:140px"><input id="lowSpecSearch" placeholder="规格过滤" style="width:140px"><button class="btn" id="clearLowFilter">清除</button></div>
+                <div class="table-wrap" style="max-height:140px"><table id="lowStockTable"><thead><tr><th>物料名称</th><th>规格</th><th>剩余</th><th>单位</th><th>类型</th><th>库存天数</th><th>批次号</th></tr></thead><tbody></tbody></table></div>
+            </div>
+            <div class="recent-section">
+                <h4>🕐 最近出入库记录</h4>
+                <div class="table-wrap"><table id="recentTable"><thead><tr><th>时间</th><th>类型</th><th>物料名称</th><th>规格</th><th>数量</th><th>详情</th></tr></thead><tbody></tbody></table></div>
+            </div>
+        </div>
+
+        <!-- 入库管理 -->
+        <div id="tabIn" class="tab-content">
+            <div class="toolbar">
+                <button class="btn" id="importInBtn">📂 导入Excel</button>
+                <button class="btn" id="exportInBtn">⬇️ 导出Excel</button>
+                <button class="btn btn-danger" id="batchDelInBtn" style="display:none">🗑️ 批量删除选中</button>
+                <span class="stock-badge" id="inStockSummary">📊 暂无数据</span>
+            </div>
+            <div class="form-row">
+                <div class="form-group" style="position:relative"><label>物料名称</label><input id="inName" placeholder="搜索名称" autocomplete="off"><div class="suggestions" id="inNameSug"></div></div>
+                <div class="form-group" style="position:relative"><label>规格</label><input id="inSpec" placeholder="搜索规格" autocomplete="off"><div class="suggestions" id="inSpecSug"></div></div>
+                <div class="form-group"><label>数量</label><input type="number" id="inQty" value="1" min="1"></div>
+                <div class="form-group"><label>单位</label><input id="inUnit" placeholder="个/台"></div>
+                <div class="form-group"><label>类型</label><select id="inType"><option>耗材</option><option>配件</option><option>资材</option></select></div>
+                <button class="btn btn-primary" id="addInBtn">➕ 入库</button>
+            </div>
+            <div class="table-wrap"><table id="inTable"><thead><tr><th class="checkbox-cell"><input type="checkbox" id="inSelectAll"></th><th>序号</th><th>批次</th><th>物料编码</th><th>物料名称</th><th>规格</th><th>数量</th><th>单位</th><th>库存天数</th><th>类型</th></tr></thead><tbody></tbody></table></div>
+            <div class="pagination" id="inPagination"></div>
         </div>
     </div>
 
@@ -277,7 +280,6 @@
                 sugDiv.style.width = sugWidth + 'px';
             }
 
-            // 入库搜索 (正常)
             function setupInSearch() {
                 const nameInput = document.getElementById('inName'), nameSug = document.getElementById('inNameSug');
                 const specInput = document.getElementById('inSpec'), specSug = document.getElementById('inSpecSug');
@@ -302,100 +304,53 @@
                 document.addEventListener('click', e => { if(!e.target.closest('#inName')&&!e.target.closest('#inNameSug'))nameSug.classList.remove('show'); if(!e.target.closest('#inSpec')&&!e.target.closest('#inSpecSug'))specSug.classList.remove('show');});
             }
 
-            // 出库搜索（修复核心：中文输入 + 防抖 + focus 触发）
             function setupOutSearch() {
                 const nameInput = document.getElementById('outNameSearch'), nameSug = document.getElementById('outNameSug');
                 const specInput = document.getElementById('outSpecSearch'), specSug = document.getElementById('outSpecSug');
-
                 function filterAvailable(nv, sv) {
                     return inData.filter(r => r.remaining > 0 && (!nv || r.name.toLowerCase().includes(nv)) && (!sv || (r.spec||'').toLowerCase().includes(sv)))
                         .sort((a, b) => new Date(a.time) - new Date(b.time));
                 }
-
-                // 防抖显示建议
                 const showSuggestions = debounce(() => {
                     const nv = nameInput.value.trim().toLowerCase(), sv = specInput.value.trim().toLowerCase();
-                    if (!nv && !sv) {
-                        nameSug.classList.remove('show'); specSug.classList.remove('show');
-                        return;
-                    }
+                    if (!nv && !sv) { nameSug.classList.remove('show'); specSug.classList.remove('show'); return; }
                     const results = filterAvailable(nv, sv).slice(0, 8);
-                    if (!results.length) {
-                        nameSug.classList.remove('show'); specSug.classList.remove('show');
-                        return;
-                    }
+                    if (!results.length) { nameSug.classList.remove('show'); specSug.classList.remove('show'); return; }
                     const html = results.map(r => {
                         const stockDays = getStockDays(r);
-                        return `<div class="sug-item" data-id="${r.id}" data-name="${r.name}" data-spec="${r.spec||''}" data-unit="${r.unit||''}" data-remaining="${r.remaining}" data-batch="${r.batch||''}" data-type="${r.type}" data-time="${fmt(r.time)}">
-                            <strong>${r.name}</strong>
-                            <div class="info">${r.spec||''} | 剩${r.remaining}${r.unit||''} | ${stockDays}天 | 批次:${r.batch}</div>
-                        </div>`;
+                        return `<div class="sug-item" data-id="${r.id}" data-name="${r.name}" data-spec="${r.spec||''}" data-unit="${r.unit||''}" data-remaining="${r.remaining}" data-batch="${r.batch||''}" data-type="${r.type}" data-time="${fmt(r.time)}"><strong>${r.name}</strong><div class="info">${r.spec||''} | 剩${r.remaining}${r.unit||''} | ${stockDays}天 | 批次:${r.batch}</div></div>`;
                     }).join('');
                     nameSug.innerHTML = html; specSug.innerHTML = html;
                     nameSug.classList.add('show'); specSug.classList.add('show');
-                    positionSuggestion(nameSug, nameInput);
-                    positionSuggestion(specSug, specInput);
+                    positionSuggestion(nameSug, nameInput); positionSuggestion(specSug, specInput);
                 }, 250);
 
-                // 中文输入法处理
                 let composing = false;
                 const onCompositionStart = () => { composing = true; };
                 const onCompositionEnd = () => { composing = false; showSuggestions(); };
-
                 [nameInput, specInput].forEach(input => {
                     input.addEventListener('compositionstart', onCompositionStart);
                     input.addEventListener('compositionend', onCompositionEnd);
                     input.addEventListener('input', () => { if (!composing) showSuggestions(); });
-                    input.addEventListener('focus', () => {
-                        if (input.value.trim() && !composing) showSuggestions();
-                    });
+                    input.addEventListener('focus', () => { if (input.value.trim() && !composing) showSuggestions(); });
                 });
 
-                // 点击建议项添加至清单
                 function addToBatch(el) {
                     const id = el.dataset.id;
-                    if (batchOutItems.some(i => i.id === id)) {
-                        alert('该批次已在清单中');
-                        return;
-                    }
-                    batchOutItems.push({
-                        id, name: el.dataset.name, spec: el.dataset.spec,
-                        unit: el.dataset.unit, remaining: parseInt(el.dataset.remaining),
-                        batch: el.dataset.batch, time: el.dataset.time,
-                        type: el.dataset.type, qty: 1
-                    });
+                    if (batchOutItems.some(i => i.id === id)) { alert('该批次已在清单中'); return; }
+                    batchOutItems.push({ id, name: el.dataset.name, spec: el.dataset.spec, unit: el.dataset.unit, remaining: parseInt(el.dataset.remaining), batch: el.dataset.batch, time: el.dataset.time, type: el.dataset.type, qty: 1 });
                     renderBatchOutList();
                     nameInput.value = ''; specInput.value = '';
                     nameSug.classList.remove('show'); specSug.classList.remove('show');
                 }
-
                 [nameSug, specSug].forEach(sug => {
-                    sug.addEventListener('touchend', e => {
-                        e.preventDefault();
-                        const el = e.target.closest('.sug-item');
-                        if (el) addToBatch(el);
-                    });
-                    sug.addEventListener('click', e => {
-                        if (isIOS) return;
-                        const el = e.target.closest('.sug-item');
-                        if (el) addToBatch(el);
-                    });
+                    sug.addEventListener('touchend', e => { e.preventDefault(); const el=e.target.closest('.sug-item'); if(el) addToBatch(el); });
+                    sug.addEventListener('click', e => { if (!isIOS) { const el=e.target.closest('.sug-item'); if(el) addToBatch(el); } });
                 });
-
-                // 点击外部关闭建议
-                document.addEventListener('click', e => {
-                    if (!e.target.closest('#outNameSearch') && !e.target.closest('#outNameSug')) nameSug.classList.remove('show');
-                    if (!e.target.closest('#outSpecSearch') && !e.target.closest('#outSpecSug')) specSug.classList.remove('show');
-                });
-
-                // 窗口改变时重新定位
-                window.addEventListener('resize', () => {
-                    if (nameSug.classList.contains('show')) positionSuggestion(nameSug, nameInput);
-                    if (specSug.classList.contains('show')) positionSuggestion(specSug, specInput);
-                });
+                document.addEventListener('click', e => { if(!e.target.closest('#outNameSearch')&&!e.target.closest('#outNameSug'))nameSug.classList.remove('show'); if(!e.target.closest('#outSpecSearch')&&!e.target.closest('#outSpecSug'))specSug.classList.remove('show');});
+                window.addEventListener('resize', () => { if (nameSug.classList.contains('show')) positionSuggestion(nameSug, nameInput); if (specSug.classList.contains('show')) positionSuggestion(specSug, specInput); });
             }
 
-            // 科室/出库人历史记录建议
             function setupDeptPersonSearch() {
                 const deptInput = document.getElementById('outDept'), deptSug = document.getElementById('deptSug');
                 const personInput = document.getElementById('outPerson'), personSug = document.getElementById('personSug');
@@ -419,7 +374,6 @@
                 document.addEventListener('click', e => { if(!e.target.closest('#outDept')&&!e.target.closest('#deptSug'))deptSug.classList.remove('show'); if(!e.target.closest('#outPerson')&&!e.target.closest('#personSug'))personSug.classList.remove('show');});
             }
 
-            // 出库清单
             function renderBatchOutList() {
                 const tbody = document.querySelector('#batchOutListTable tbody');
                 tbody.innerHTML = batchOutItems.length ? batchOutItems.map((item, idx) => `<tr>
@@ -459,7 +413,6 @@
                 await loadIn(); await loadOut(); await loadDashboard();
             };
 
-            // 入库提交
             document.getElementById('addInBtn').onclick = async () => {
                 const name = document.getElementById('inName').value.trim(), spec = document.getElementById('inSpec').value.trim();
                 const qty = +document.getElementById('inQty').value, unit = document.getElementById('inUnit').value.trim(), type = document.getElementById('inType').value;
@@ -471,7 +424,6 @@
                 await loadIn(); await loadOut(); await loadDashboard();
             };
 
-            // 批量删除
             document.getElementById('batchDelInBtn').onclick = async () => {
                 if (!selectedInIds.size) return;
                 if (!confirm(`确定删除${selectedInIds.size}条入库记录？`)) return;
@@ -516,7 +468,6 @@
                 renderOutTable();
             };
 
-            // 看板
             async function loadDashboard() {
                 const { data: inR } = await sb.from('in_records').select('*').eq('hospital', currentHospital);
                 const { data: outR } = await sb.from('out_records').select('*').eq('hospital', currentHospital);
@@ -663,6 +614,7 @@
                 const ws=XLSX.utils.aoa_to_sheet(data), wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'出库记录'); XLSX.writeFile(wb,'出库记录.xlsx');
             };
 
+            // 修复后的 switchTab
             function switchTab(tab) {
                 document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
                 document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
@@ -671,11 +623,11 @@
                 localStorage.setItem('activeTab', tab);
                 if (tab === 'dashboard') loadDashboard();
                 else if (tab === 'in') loadIn();
-                else if (tab === 'out') loadOut();
+                else if (tab === 'out') { loadIn(); loadOut(); } // 关键修复：同时加载入库和出库数据
             }
+            document.getElementById('tabOutBtn').onclick = () => switchTab('out');
             document.getElementById('tabDashboardBtn').onclick = () => switchTab('dashboard');
             document.getElementById('tabInBtn').onclick = () => switchTab('in');
-            document.getElementById('tabOutBtn').onclick = () => switchTab('out');
 
             function checkLogin() {
                 const hospital = localStorage.getItem('hospital');
@@ -684,7 +636,7 @@
                     document.getElementById('loginOverlay').style.display = 'none';
                     document.getElementById('mainApp').style.display = 'flex';
                     document.getElementById('appTitle').textContent = `📦 ${hospital}耗材配件出入库管理系统`;
-                    const savedTab = localStorage.getItem('activeTab') || 'dashboard';
+                    const savedTab = localStorage.getItem('activeTab') || 'out';
                     switchTab(savedTab);
                     setupInSearch();
                     setupOutSearch();
@@ -704,7 +656,7 @@
                 }
                 document.getElementById('loginError').style.display = 'none';
                 localStorage.setItem('hospital', hospital);
-                localStorage.setItem('activeTab', 'dashboard');
+                if (!localStorage.getItem('activeTab')) localStorage.setItem('activeTab', 'out');
                 checkLogin();
             };
 
