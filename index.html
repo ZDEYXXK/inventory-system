@@ -677,12 +677,30 @@
             };
 
             function switchTab(tab) {
+                // 移除所有active状态
                 document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
                 document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-                document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
-                document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Btn').classList.add('active');
-                if (tab === 'dashboard') loadDashboard();
+                
+                // 设置当前tab为active
+                const tabContent = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+                const tabBtn = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Btn');
+                
+                if (tabContent) tabContent.classList.add('active');
+                if (tabBtn) tabBtn.classList.add('active');
+                
+                // 保存当前tab状态到localStorage
+                localStorage.setItem('activeTab', tab);
+                
+                // 根据tab类型加载相应数据
+                if (tab === 'dashboard') {
+                    loadDashboard();
+                } else if (tab === 'in') {
+                    loadIn();
+                } else if (tab === 'out') {
+                    loadOut();
+                }
             }
+            
             document.getElementById('tabDashboardBtn').onclick = () => switchTab('dashboard');
             document.getElementById('tabInBtn').onclick = () => switchTab('in');
             document.getElementById('tabOutBtn').onclick = () => switchTab('out');
@@ -700,7 +718,23 @@
                     loginOverlay.style.display = 'none';
                     mainApp.style.display = 'flex';
                     appTitle.textContent = `📦 ${hospital}耗材配件出入库管理系统`;
-                    loadIn(); loadOut(); loadDashboard();
+                    
+                    // 恢复上次的标签页状态
+                    const savedTab = localStorage.getItem('activeTab') || 'dashboard';
+                    
+                    // 根据保存的tab加载相应数据
+                    if (savedTab === 'dashboard') {
+                        loadDashboard();
+                    } else if (savedTab === 'in') {
+                        loadIn();
+                    } else if (savedTab === 'out') {
+                        loadOut();
+                    }
+                    
+                    // 使用switchTab来设置正确的标签页状态
+                    switchTab(savedTab);
+                    
+                    // 初始化搜索功能
                     setupInSearch();
                     setupBatchSearch();
                     setupDeptPersonSearch();
@@ -716,11 +750,15 @@
                 }
                 loginError.style.display = 'none';
                 localStorage.setItem('hospital', hospital);
+                // 默认激活dashboard标签页
+                localStorage.setItem('activeTab', 'dashboard');
                 checkLogin();
             });
 
             document.getElementById('logoutBtn').addEventListener('click', () => {
                 localStorage.removeItem('hospital');
+                // 保留activeTab，下次登录时仍然可以恢复
+                // localStorage.removeItem('activeTab'); // 如果想完全重置，取消注释这行
                 location.reload();
             });
 
